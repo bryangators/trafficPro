@@ -2,3 +2,4 @@ streamlit==1.7.0
 cx-Oracle==8.3.0
 hydralit==1.0.12
 hydralit-components==1.0.9
+plotly==5.6.0
