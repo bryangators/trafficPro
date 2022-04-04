@@ -3,6 +3,7 @@ import os
 from typing import Dict
 import streamlit as st
 from hydralit import HydraHeadApp
+from db import db_conn as oracle_db
 
 
 class SignUpApp(HydraHeadApp):
@@ -97,11 +98,8 @@ class SignUpApp(HydraHeadApp):
                 self.do_redirect()
 
     def _save_signup(self, signup_data):
-        #get the user details from the form and save somehwere
-
-        #signup_data
-        # this is the data submitted
-
-        #just show the data we captured
-        # TODO: need to have data uploaded to database and ensure user name does not exist
-        pass
+        # save user data into db and commit changes to db
+        cursor = oracle_db.connection.cursor()
+        sql_stmt = """INSERT INTO "J.POULOS".users VALUES(:user_name, :password)"""
+        cursor.execute(sql_stmt, user_name=signup_data['username'], password=signup_data['password'])
+        oracle_db.connection.commit()

@@ -2,6 +2,7 @@ import time
 from typing import Dict
 import streamlit as st
 from hydralit import HydraHeadApp
+from db import db_conn as oracle_db
 
 
 class LoginApp(HydraHeadApp):
@@ -89,9 +90,14 @@ class LoginApp(HydraHeadApp):
 
     def _check_login(self, login_data) -> int:
         #this method returns a value indicating the success of verifying the login details provided and the permission level, 1 for default access, 0 no access etc.
-        # TODO: check login with database
-            # here we will check that login is correct in database rather than hard-coded
-        if login_data['username'] == 'joe' and login_data['password'] == 'joe':
-            return 1
-        else:
+       
+        cursor = oracle_db.connection.cursor()
+        sql_stmt = """SELECT password FROM "J.POULOS".users WHERE username = :user_name"""
+        cursor.execute(sql_stmt, user_name=login_data['username'])
+        row = cursor.fetchone()
+        if not row:
             return 0
+        elif row[0] != login_data['password']:
+            return 0
+        else:
+            return 1
