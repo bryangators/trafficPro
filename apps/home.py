@@ -14,7 +14,7 @@ class Home(HydraHeadApp):
 
     # button for tuples in the database
     def dbstats(self):
-        
+
         cursor = oracle_db.connection.cursor()
         st.sidebar.header('Traffic Pro Database Information', anchor = None)
         
@@ -91,12 +91,12 @@ class Home(HydraHeadApp):
             str10 = "Tuples in City_pop table: " + str(q10t) + "\n"
         
             sum = q1t + q2t + q3t + q4t + q5t + q6t + q7t + q8t + q9t + q10t
-            str10 = "\nTotal Tuples: " + str(sum) + "\n"
+            str11 = "\nTotal Tuples: " + str(sum) + "\n"
 
             st.sidebar.text_area('About', 
                 str1 + str2 + str3 + str4 + str5 + 
-                str6 + str7 + str8 + str9 + str10,
-                height = 300
+                str6 + str7 + str8 + str9 + str10 + str11,
+                height = 350
             )
 
     def run(self):
