@@ -13,12 +13,12 @@ class About(HydraHeadApp):
         st.image(l1)
         st.title("About")
         
-        s = ("TrafficPro is a traffic accident data visualization tool designed for"
-                "professionals in many fields from public safety to civil engineering."
-                "TrafficPro allows users to analyze trends about traffic accidents"
-                "occurring in the United States from 2016-2019."
+        s = ("TrafficPro is a traffic accident data visualization tool designed for "
+                "professionals in many fields from public safety to civil engineering. "
+                "TrafficPro allows users to analyze trends about traffic accidents "
+                "occurring in the United States from 2016-2019. "
         
-                "TrafficPro integrates this accident data along with state demographic"
-                "data to allow users to visualize trends in areas of interest.")
+                "TrafficPro integrates this accident data along with state demographic "
+                "data to allow users to visualize trends in areas of interest. ")
         st.text(textwrap.fill(s, 60))
         st.image(traffic, width = 512)
