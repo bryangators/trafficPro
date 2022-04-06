@@ -100,7 +100,7 @@ class Home(HydraHeadApp):
             )
 
     def run(self):
-        
+        cursor = oracle_db.connection.cursor()
         l1 = Image.open('images/logo.png')
         l2 = Image.open('images/logo2.png')
         st.image(l1)
@@ -186,3 +186,26 @@ class Home(HydraHeadApp):
             category={'scheme': 'yelloworangered'}
         )
         st.altair_chart(chart_data, use_container_width = True)
+        st.text_area('About', 'place holder', 
+                height = 350
+        )
+        
+        # this uses the slider variable declared at the top
+        # to get the left side year of the date slider
+        # it should then pass it to cursor.execute for the query.
+        # currently not working as intended
+        start_year = datetime.date(add_slider[0], 1, 1)
+        st.write(start_year)
+
+        year = """SELECT * 
+                  FROM "J.POULOS".Accident 
+                  WHERE ROWNUM < 10 AND TRUNC(start_time) >= DATE :start"""
+        cursor.execute(year, start = start_year)
+
+        #temp = """SELECT * 
+                 # FROM "J.POULOS".Accident 
+                  #WHERE ROWNUM < 10 AND TRUNC(start_time) >= DATE '2016-01-01'"""
+        #cursor.execute(temp)
+        #for row in cursor:
+            #str1 = row
+            #st.write(str1)
