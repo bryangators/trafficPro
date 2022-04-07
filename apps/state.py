@@ -17,6 +17,7 @@ class State(HydraHeadApp):
 
     latitude = 0.0
     longitude = 0.0
+    condition = ""
 
     def state(self, name):
         match name:
@@ -215,7 +216,7 @@ class State(HydraHeadApp):
             case "Wyoming":
                 self.latitude = 43.075970
                 self.longitude = -107.290283   
-
+        
     def run(self):
 
         # logos
@@ -228,7 +229,7 @@ class State(HydraHeadApp):
         This section is for the elements in the sidebar
         """
         # State selection
-        st.sidebar.header('State', anchor=None)
+        st.sidebar.header('State', anchor = None)
         state_selectbox = st.sidebar.selectbox(
             "Select State",
             ('Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 
@@ -263,8 +264,16 @@ class State(HydraHeadApp):
         st.sidebar.header('Weather', anchor = None)
         weather_multiselect = st.sidebar.multiselect(
             'Select Weather Condition',
-            ['Rain', 'Snow', 'Partly Cloudy', 'Tornado']
+            ['Rain', 'Snow', 'Partly Cloudy', 'Tornado', 'Clear', 'Scattered Clouds']
         )
+
+        cond = ""
+
+        for i in range(0, len(weather_multiselect)):
+            cond = cond + str(weather_multiselect[i])
+            if not i == len(weather_multiselect) - 1:
+                cond = cond + ", "
+        st.write(cond)
 
         # multiselect temperature
         st.sidebar.header('Temperature', anchor = None)
@@ -301,18 +310,16 @@ class State(HydraHeadApp):
             l1 = 0.0
             l2 = 0.0
 
-            # get the latitude
-            latitude = """SELECT latitude FROM city WHERE name = :city_name"""
-            cursor.execute(latitude, city_name = name)
+            # get the city latitude and longitude
+            city_coordinates = """SELECT latitude, longitude 
+                                  FROM city 
+                                  WHERE name = :city_name"""
+            
+            cursor.execute(city_coordinates, city_name = name)
             for row in cursor:
                 lat = row[0]
+                long = row[1]
                 self.latitude = float(lat)
-            
-            # get the longitude
-            longitude = """SELECT longitude FROM city WHERE name = :city_name"""
-            cursor.execute(longitude, city_name = name)
-            for row in cursor:
-                long = row[0]
                 self.longitude = float(long) 
 
             # dataframe and map for the state.
@@ -379,4 +386,13 @@ class State(HydraHeadApp):
             x = 'State', 
             y = 'Accident Totals'
         ).properties(height = 500, title = "Bar Graph")
-        st.altair_chart(chart_data, use_container_width = True)                
+        st.altair_chart(chart_data, use_container_width = True) 
+
+
+        if not len(weather_multiselect) == 0:
+            weather = """SELECT *
+                        FROM "J.POULOS".Accident 
+                        WHERE ROWNUM < 20 AND condition IN :wthr"""
+            cursor.execute(weather, wthr = cond)
+            for row in cursor:
+                st.write(row)

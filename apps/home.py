@@ -85,8 +85,8 @@ class Home(HydraHeadApp):
             str4 = "Tuples in State_fund table: " + str(q4t) + "\n"
             str5 = "Tuples in State_veh table: " + str(q5t) + "\n"
             str6 = "Tuples in State_lic_drivers table: " + str(q6t) + "\n"
-            str7 = "Tuples in County: " + str(q7t) + "\n"
-            str8 = "Tuples in County_pop: " + str(q8t) + "\n"
+            str7 = "Tuples in County table: " + str(q7t) + "\n"
+            str8 = "Tuples in County_pop table: " + str(q8t) + "\n"
             str9 = "Tuples in City table: " + str(q9t) + "\n"
             str10 = "Tuples in City_pop table: " + str(q10t) + "\n"
         
@@ -100,30 +100,32 @@ class Home(HydraHeadApp):
             )
 
     def run(self):
-        
+        cursor = oracle_db.connection.cursor()
         l1 = Image.open('images/logo.png')
         l2 = Image.open('images/logo2.png')
         st.image(l1)
 
+        
         """
         This section is for the elements in the sidebar
         """
         st.sidebar.image(l2, width = 250)
 
-        # Date selection
+        # Date selection by day
         day = 'Accidents by Day'
         st.sidebar.header(day, anchor = None)
-        add_calendar = st.sidebar.date_input(
+        
+        calendar = st.sidebar.date_input(
             "Date:", datetime.date(2019, 4, 1)
         )
 
         # Year slider
         st.sidebar.header('Accidents by Year', anchor = None)
-        add_slider = st.sidebar.slider(
+        year_slider = st.sidebar.slider(
             'Select the range of years',
             2016, 2021, (2016, 2017)
         )
-        
+
         # Weather options
         st.sidebar.header('Select Weather Conditions', anchor = None)
         w_clear = st.sidebar.checkbox('Clear')
@@ -149,7 +151,7 @@ class Home(HydraHeadApp):
         # Data frame and map
         df = pd.DataFrame(
             np.random.randn(1000, 2) / [50, 50] + [37.76, -122.4],
-            columns=['lat', 'lon']
+            columns = ['lat', 'lon']
         )
 
         st.pydeck_chart(pdk.Deck(
@@ -186,3 +188,21 @@ class Home(HydraHeadApp):
             category={'scheme': 'yelloworangered'}
         )
         st.altair_chart(chart_data, use_container_width = True)
+
+        # Query for year slider. Outputs 20 rows
+        year_range = f"""SELECT * 
+                         FROM "J.POULOS".Accident 
+                         WHERE ROWNUM < 20 
+                         AND EXTRACT(year FROM start_time) >= {year_slider[0]}
+                         AND EXTRACT(year FROM start_time) <= {year_slider[1]}"""
+        st.write(pd.read_sql(year_range, con = oracle_db.connection))
+
+        # Query for calendar range.
+        # currently not returning what is expected.
+        # Outputs empty table.
+        calendar_day = f"""SELECT *
+                        FROM "J.POULOS".Accident 
+                        WHERE TO_CHAR(TRUNC(start_time), 'YYYY-MON-DD') = TO_CHAR({calendar})
+                        AND ROWNUM < 20"""
+                        
+        st.write(pd.read_sql(calendar_day, con = oracle_db.connection))     
