@@ -267,14 +267,6 @@ class State(HydraHeadApp):
             ['Rain', 'Snow', 'Partly Cloudy', 'Tornado', 'Clear', 'Scattered Clouds']
         )
 
-        cond = ""
-
-        for i in range(0, len(weather_multiselect)):
-            cond = cond + str(weather_multiselect[i])
-            if not i == len(weather_multiselect) - 1:
-                cond = cond + ", "
-        st.write(cond)
-
         # multiselect temperature
         st.sidebar.header('Temperature', anchor = None)
         temperature_multiselect = st.sidebar.multiselect(
@@ -323,21 +315,28 @@ class State(HydraHeadApp):
                 self.longitude = float(long) 
 
             # dataframe and map for the state.
-            # this should grab the longitude and latitude and append it to
-            # the dataframe. It should then update the pdk.Layer of the map 
-            # with a scatterplot from the lat and long. It's not updating as expected.
+            # grabs the longitude and latitude and appends it to
+            # the dataframe. The dataframe is passed to the scatterplot
+            # layer of pydeck_chart to update the map 
+            # with a scatterplot based on long and lat. This is expensive.
+            # doing the entire state of Florida takes 5 minutes.
+            # currently limited to 500 rows for a state for faster loading.
             state_lat_long = """SELECT start_long, start_lat 
                                 FROM "J.POULOS".Accident 
-                                WHERE ROWNUM < 20 AND state_name = :state"""
+                                WHERE ROWNUM < 500 AND state_name = :state"""
             
             cursor.execute(state_lat_long, state = state_selectbox)
             df_state = pd.DataFrame(columns = ['lon', 'lat'])
+
+            # adds the lon and lat to the dataframe
+            i = 0
             for row in cursor:
                 lon = row[0]
                 lat = row[1]
                 temp1 = float(lon)
                 temp2 = float(lat)
-                df_state.append({'lon' : temp1, 'lat' : temp2}, ignore_index = True)   
+                df_state.loc[i] = [temp1, temp2]
+                i += 1
 
             st.pydeck_chart(pdk.Deck(
                 map_style = 'mapbox://styles/mapbox/light-v9',
@@ -351,14 +350,14 @@ class State(HydraHeadApp):
                     pdk.Layer(
                         'ScatterplotLayer',
                         data = df_state,
-                        get_position = '[lat, lon]',
+                        get_position = '[lon, lat]',
                         radius = 200,
                         elevation_scale = 4,
                         elevation_range = [0, 1000],
                         pickable = True,
                         extruded = True,
                         get_color = '[200, 30, 0, 160]',
-                        get_radius = 400,
+                        get_radius = 2000,
                     ),
                 ],
             ))
@@ -375,7 +374,7 @@ class State(HydraHeadApp):
             )
             st.table(df_table)
 
-        # data frame and bar graph
+        # data frame and bar graph. place holder.
         df_graph = pd.DataFrame({
             'State': ['Florida', 'Michigan', 'Texas', 'Arizona', 'Nevada', 
                     'NY', 'Georgia', 'Maryland', 'California', 'New Mexico'],
@@ -388,11 +387,21 @@ class State(HydraHeadApp):
         ).properties(height = 500, title = "Bar Graph")
         st.altair_chart(chart_data, use_container_width = True) 
 
+        # Gets all of the conditions from the weather selction box 
+        # to pass to the quwery below.
+        for i in range(0, len(weather_multiselect)):
+            self.condition = self.condition + str(weather_multiselect[i])
+            if not i == len(weather_multiselect) - 1:
+                 self.condition =  self.condition + ", "
+        st.write( self.condition)
 
+        # query for getting accidents based on weather condition
+        # currently only allows for a single selection from the checkbox
+        # conditions are grabbed from the
         if not len(weather_multiselect) == 0:
             weather = """SELECT *
                         FROM "J.POULOS".Accident 
                         WHERE ROWNUM < 20 AND condition IN :wthr"""
-            cursor.execute(weather, wthr = cond)
+            cursor.execute(weather, wthr =  self.condition)
             for row in cursor:
                 st.write(row)
