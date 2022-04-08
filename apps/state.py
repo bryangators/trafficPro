@@ -302,10 +302,11 @@ class State(HydraHeadApp):
             l1 = 0.0
             l2 = 0.0
 
-            # get the city latitude and longitude
-            city_coordinates = """SELECT latitude, longitude 
-                                  FROM city 
-                                  WHERE name = :city_name"""
+            # get the city latitude and longitude. This is to zoom the
+            # the map to the location of the city
+            city_coordinates = """SELECT c.latitude, c.longitude 
+                                  FROM "J.POULOS".city c
+                                  WHERE c.name = :city_name"""
             
             cursor.execute(city_coordinates, city_name = name)
             for row in cursor:
@@ -314,6 +315,26 @@ class State(HydraHeadApp):
                 self.latitude = float(lat)
                 self.longitude = float(long) 
 
+            # get the accident latitude and longitude for the specific city. 
+            # This is to update the map with a scatterplot
+            city_accident_coordinates = """SELECT start_long, start_lat
+                                            FROM "J.POULOS".accident a
+                                            JOIN "J.POULOS".city c ON c.name = a.city_name
+                                            WHERE ROWNUM < 500 AND a.city_name = :city_name"""
+
+            cursor.execute(city_accident_coordinates, city_name =  name)
+            df_city = pd.DataFrame(columns = ['lon', 'lat'])
+            
+            # adds the city lon and lat to the city dataframe
+            i = 0
+            for row in cursor:
+                lon = row[0]
+                lat = row[1]
+                temp1 = float(lon)
+                temp2 = float(lat)
+                df_city.loc[i] = [temp1, temp2]
+                i += 1
+
             # dataframe and map for the state.
             # grabs the longitude and latitude and appends it to
             # the dataframe. The dataframe is passed to the scatterplot
@@ -321,14 +342,14 @@ class State(HydraHeadApp):
             # with a scatterplot based on long and lat. This is expensive.
             # doing the entire state of Florida takes 5 minutes.
             # currently limited to 500 rows for a state for faster loading.
-            state_lat_long = """SELECT start_long, start_lat 
-                                FROM "J.POULOS".Accident 
-                                WHERE ROWNUM < 500 AND state_name = :state"""
+            state_accident_coordinates = """SELECT start_long, start_lat 
+                                            FROM "J.POULOS".Accident 
+                                            WHERE ROWNUM < 500 AND state_name = :state"""
             
-            cursor.execute(state_lat_long, state = state_selectbox)
+            cursor.execute(state_accident_coordinates, state = state_selectbox)
             df_state = pd.DataFrame(columns = ['lon', 'lat'])
 
-            # adds the lon and lat to the dataframe
+            # adds the state accident lon and lat to the state dataframe
             i = 0
             for row in cursor:
                 lon = row[0]
@@ -358,7 +379,18 @@ class State(HydraHeadApp):
                         extruded = True,
                         get_color = '[200, 30, 0, 160]',
                         get_radius = 2000,
-                    ),
+                    ), pdk.Layer(
+                        'ScatterplotLayer',
+                        data = df_city,
+                        get_position = '[lon, lat]',
+                        radius = 200,
+                        elevation_scale = 4,
+                        elevation_range = [0, 1000],
+                        pickable = True,
+                        extruded = True,
+                        get_color = '[400, 30, 0, 160]',
+                        get_radius = 200,
+                    )
                 ],
             ))
 
@@ -406,4 +438,4 @@ class State(HydraHeadApp):
                         WHERE ROWNUM < 20 AND condition IN :wthr"""
             cursor.execute(weather, wthr =  self.condition)
             for row in cursor:
-                st.write(row)
+                st.write(row)        
