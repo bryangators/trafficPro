@@ -362,7 +362,7 @@ class State(HydraHeadApp):
                 ],
             ))
 
-        # table output
+        # table output. placeholder.
         with col2:
             st.header('State Data', anchor = None)
             with st.expander("See details"):
@@ -374,7 +374,7 @@ class State(HydraHeadApp):
             )
             st.table(df_table)
 
-        # data frame and bar graph. place holder.
+        # data frame and bar graph. placeholder.
         df_graph = pd.DataFrame({
             'State': ['Florida', 'Michigan', 'Texas', 'Arizona', 'Nevada', 
                     'NY', 'Georgia', 'Maryland', 'California', 'New Mexico'],
@@ -388,16 +388,18 @@ class State(HydraHeadApp):
         st.altair_chart(chart_data, use_container_width = True) 
 
         # Gets all of the conditions from the weather selction box 
-        # to pass to the quwery below.
+        # to pass to the query below. creates a comma separted string
+        # of the conditions.
         for i in range(0, len(weather_multiselect)):
             self.condition = self.condition + str(weather_multiselect[i])
             if not i == len(weather_multiselect) - 1:
-                 self.condition =  self.condition + ", "
-        st.write( self.condition)
+                 self.condition = self.condition + ", "
+        st.write(self.condition)
 
+        # Needs to be fixed.
         # query for getting accidents based on weather condition
-        # currently only allows for a single selection from the checkbox
-        # conditions are grabbed from the
+        # currently only allows for a single selection from the checkbox.
+        # additional conditions in the string are ignored. 
         if not len(weather_multiselect) == 0:
             weather = """SELECT *
                         FROM "J.POULOS".Accident 
