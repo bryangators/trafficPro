@@ -9,6 +9,7 @@ import datetime
 import altair as alt
 import pydeck as pdk
 from PIL import Image
+import matplotlib.pyplot as plt
 
 
 class State(HydraHeadApp):
@@ -395,47 +396,82 @@ class State(HydraHeadApp):
             ))
 
         # table output. placeholder.
-        with col2:
-            st.header('State Data', anchor = None)
-            with st.expander("See details"):
-                st.write('Add some additional text here')
-                
-            df_table = pd.DataFrame(
-                np.random.randn(10, 5),
-                columns=('col %d' % i for i in range(5))
-            )
-            st.table(df_table)
+        # with col2:
+        #     st.header('State Data', anchor = None)
+        #     with st.expander("See details"):
+        #         st.write('Add some additional text here')
+        #
+        #     df_table = pd.DataFrame(
+        #         np.random.randn(10, 5),
+        #         columns=('col %d' % i for i in range(5))
+        #     )
+        #     st.table(df_table)
+        #
+        # # data frame and bar graph. placeholder.
+        # df_graph = pd.DataFrame({
+        #     'State': ['Florida', 'Michigan', 'Texas', 'Arizona', 'Nevada',
+        #             'NY', 'Georgia', 'Maryland', 'California', 'New Mexico'],
+        #     'Accident Totals': [450000, 250000, 105345, 500450, 320032,
+        #                         75345, 350450, 320032, 145345, 600450]
+        # })
+        # chart_data = alt.Chart(df_graph).mark_bar().encode(
+        #     x = 'State',
+        #     y = 'Accident Totals'
+        # ).properties(height = 500, title = "Bar Graph")
+        # st.altair_chart(chart_data, use_container_width = True)
 
-        # data frame and bar graph. placeholder.
-        df_graph = pd.DataFrame({
-            'State': ['Florida', 'Michigan', 'Texas', 'Arizona', 'Nevada', 
-                    'NY', 'Georgia', 'Maryland', 'California', 'New Mexico'],
-            'Accident Totals': [450000, 250000, 105345, 500450, 320032, 
-                                75345, 350450, 320032, 145345, 600450]
-        })
-        chart_data = alt.Chart(df_graph).mark_bar().encode(
-            x = 'State', 
-            y = 'Accident Totals'
-        ).properties(height = 500, title = "Bar Graph")
-        st.altair_chart(chart_data, use_container_width = True) 
+        query = f"""WITH cte_funding AS(
+                        SELECT sname AS state_name, year, funding
+                        FROM "J.POULOS".state_fund),
+
+                        cte_accidents AS (
+                        SELECT COUNT(id) AS accidents, EXTRACT(year FROM start_time) AS year, state_name
+                        FROM "J.POULOS".accident
+                        GROUP BY state_name, EXTRACT(year FROM start_time))
+
+                        SELECT * FROM cte_funding NATURAL JOIN cte_accidents
+                        WHERE state_name = '{state_selectbox}'
+                        ORDER BY year"""
+
+        df_oracle2 = pd.read_sql(query, con=oracle_db.connection)
+        st.write(df_oracle2)
+
+        fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1)
+        ax1.set_title('Funding')
+        ax1.set_ylabel('Dollar Amount')
+
+        ax2.set_title('Amount of Accidents', fontsize=12)
+        ax2.set_xlabel('Year', fontsize=12)
+        ax2.set_ylabel('Accidents')
+        ax2.plot(df_oracle2['YEAR'], df_oracle2['ACCIDENTS'])
+        ax1.plot(df_oracle2['YEAR'], df_oracle2['FUNDING'])
+        plt.subplots_adjust(bottom=0.000000000000000000001)
+
+        for tick in ([ax1.title, ax1.xaxis.label, ax1.yaxis.label, ax2.title,
+                      ax2.xaxis.label, ax2.yaxis.label] + ax1.get_xticklabels() +
+                     ax2.get_xticklabels() + ax1.get_yticklabels() + ax2.get_yticklabels()):
+            tick.set_fontsize(6)
+        ax2.set_xticks(df_oracle2['YEAR'])
+        ax1.set_xticks(df_oracle2['YEAR'])
+        st.pyplot(fig=plt)
 
         # Gets all of the conditions from the weather selction box 
         # to pass to the query below. creates a comma separted string
         # of the conditions.
-        for i in range(0, len(weather_multiselect)):
-            self.condition = self.condition + str(weather_multiselect[i])
-            if not i == len(weather_multiselect) - 1:
-                 self.condition = self.condition + ", "
-        st.write(self.condition)
-
-        # Needs to be fixed.
-        # query for getting accidents based on weather condition
-        # currently only allows for a single selection from the checkbox.
-        # additional conditions in the string are ignored. 
-        if not len(weather_multiselect) == 0:
-            weather = """SELECT *
-                        FROM "J.POULOS".Accident 
-                        WHERE ROWNUM < 20 AND condition IN :wthr"""
-            cursor.execute(weather, wthr =  self.condition)
-            for row in cursor:
-                st.write(row)        
+        # for i in range(0, len(weather_multiselect)):
+        #     self.condition = self.condition + str(weather_multiselect[i])
+        #     if not i == len(weather_multiselect) - 1:
+        #          self.condition = self.condition + ", "
+        # st.write(self.condition)
+        #
+        # # Needs to be fixed.
+        # # query for getting accidents based on weather condition
+        # # currently only allows for a single selection from the checkbox.
+        # # additional conditions in the string are ignored.
+        # if not len(weather_multiselect) == 0:
+        #     weather = """SELECT *
+        #                 FROM "J.POULOS".Accident
+        #                 WHERE ROWNUM < 20 AND condition IN :wthr"""
+        #     cursor.execute(weather, wthr =  self.condition)
+        #     for row in cursor:
+        #         st.write(row)
