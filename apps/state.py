@@ -574,6 +574,7 @@ class State(HydraHeadApp):
             'Select Temperature',
             ['00 - 34 °F', '35 - 69 °F', '70 - 100 °F']
         )
+        self.temperature_condition(temperature_multiselect)
 
         # multiselect time
         time = 'Time'
@@ -583,6 +584,7 @@ class State(HydraHeadApp):
             ['12:00 AM - 05:59 AM', '06:00 AM - 11:59 AM', 
             '12:00 PM - 05:59 PM', '06:00 PM - 11:59 PM']
         )
+        self.time_condition(time_multiselect)
 
     def load_map(self, current_state):
        
@@ -705,6 +707,18 @@ class State(HydraHeadApp):
                         FROM "J.POULOS".Accident 
                         WHERE ROWNUM < 20 AND condition IN :wthr"""
             self.cursor.execute(weather, wthr =  self.condition)      
+
+    def time_condition(self, time):
+        # add queries and functionality
+        # for time in the sidebar
+        for i in range(0, len(time)):
+            st.write(time)
+
+    def temperature_condition(self, temperature):
+        # add queries and functionality
+        # for temperature in the sidebar
+        for i in range(0, len(temperature)):
+            st.write(temperature)
 
     def load_table(self):
         st.header('State Data', anchor = None)
