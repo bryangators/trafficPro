@@ -566,7 +566,7 @@ class State(HydraHeadApp):
             'Select Weather Condition',
             ['Rain', 'Snow', 'Partly Cloudy', 'Tornado', 'Clear', 'Scattered Clouds']
         )
-        self.weather(weather_multiselect)
+        self.weather_condition(weather_multiselect)
 
         # multiselect temperature
         st.sidebar.header('Temperature', anchor = None)
@@ -689,7 +689,7 @@ class State(HydraHeadApp):
             self.df_city.loc[i] = [temp1, temp2]
             i += 1
 
-    def weather(self, condition):
+    def weather_condition(self, condition):
         # Gets all of the conditions from the weather selction box 
         # to pass to the query below. creates a comma separted string
         # of the conditions.
