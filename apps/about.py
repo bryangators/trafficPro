@@ -9,8 +9,7 @@ traffic = Image.open('images/traffic1.jpg')
 class About(HydraHeadApp):
 
     def run(self):
-        l1 = Image.open('images/logo.png')
-        st.image(l1)
+        st.image(Image.open('images/logo_banner.png'), use_column_width = True)
         st.title("About")
         
         s = ("TrafficPro is a traffic accident data visualization tool designed for "

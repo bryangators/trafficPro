@@ -525,6 +525,8 @@ class State(HydraHeadApp):
 
                     st.pyplot(fig=plt)
 
+    
+
     def load_sidebar(self):
         l2 = Image.open('images/logo2.png')
         st.sidebar.image(l2, width = 250)
@@ -618,6 +620,7 @@ class State(HydraHeadApp):
             initial_view_state = pdk.ViewState(
                 latitude = self.latitude,
                 longitude = self.longitude,
+                height = 440,
                 zoom = 5,
                 pitch = 10,
             ),
@@ -733,11 +736,11 @@ class State(HydraHeadApp):
 
     def run(self):
 
-        st.image(Image.open('images/logo.png'))
+        st.image(Image.open('images/logo_banner.png'), use_column_width = True)
         self.load_sidebar()
 
         # creates a two column layout.
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         
         with col1:
             # calls the state function. 
@@ -752,7 +755,10 @@ class State(HydraHeadApp):
             self.update_state(self.state2)
             self.city("2")
             self.load_map(self.state2)
-
+        
+        with col3:
+            st.text_area("Map Info", "Text Here", height = 500)
+            
         self.load_graphs()
         self.load_table()
         

@@ -101,9 +101,8 @@ class Home(HydraHeadApp):
 
     def run(self):
         cursor = oracle_db.connection.cursor()
-        l1 = Image.open('images/logo.png')
         l2 = Image.open('images/logo2.png')
-        st.image(l1)
+        st.image(Image.open('images/logo_banner.png'), use_column_width = True)
 
         
         """
