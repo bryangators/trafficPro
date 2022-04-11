@@ -708,17 +708,17 @@ class State(HydraHeadApp):
                         WHERE ROWNUM < 20 AND condition IN :wthr"""
             self.cursor.execute(weather, wthr =  self.condition)      
 
-    def time_condition(self, time):
-        # add queries and functionality
-        # for time in the sidebar
-        for i in range(0, len(time)):
-            st.write(time)
-
     def temperature_condition(self, temperature):
         # add queries and functionality
         # for temperature in the sidebar
         for i in range(0, len(temperature)):
             st.write(temperature)
+
+    def time_condition(self, time):
+        # add queries and functionality
+        # for time in the sidebar
+        for i in range(0, len(time)):
+            st.write(time)
 
     def load_table(self):
         st.header('State Data', anchor = None)
