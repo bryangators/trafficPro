@@ -317,7 +317,7 @@ class State(HydraHeadApp):
 
             if st.button("Compare this state with another?") or st.session_state.load_state:
                 st.session_state.load_state = True
-                st.write('Why? One state should be good enough for you')
+                #st.write('Why? One state should be good enough for you')
                 
                 if self.state2 not in states:
                     states.append(self.state2)
@@ -327,8 +327,8 @@ class State(HydraHeadApp):
                     if mod not in modified_states:
                         modified_states.append(mod)
 
-                print(states)
-                print(modified_states)
+                # print(states)
+                # print(modified_states)
 
                 for index, val in enumerate(modified_states):
                     if len(modified_states) == 1:
@@ -368,12 +368,12 @@ class State(HydraHeadApp):
                 # Wtf? The dataframe printed completely ignores the previous state/funding values that were selected.
                 # I don't see how thats possible when the query that prints has the 2 different states?!?
                 st.write(df_oracle3)
-                print(df_oracle3)
-                for col in df_oracle3:
-                    print(col)
-
-                for val in df_oracle3['STATE_NAME']:
-                    print(val)
+                # print(df_oracle3)
+                # for col in df_oracle3:
+                #     print(col)
+                #
+                # for val in df_oracle3['STATE_NAME']:
+                #     print(val)
                 #frames = [df_oracle2, df_oracle3]
                 #result = pd.concat(frames)
                 #st.write(result)
@@ -381,7 +381,7 @@ class State(HydraHeadApp):
                 # df_oracle2['Key'] = 'trail1'
                 # df_oracle3['Key'] = 'trail2'
 
-                #fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1)
+                fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1)
                 ax1.set_title('Funding')
                 ax1.set_ylabel('Dollar Amount')
 
@@ -392,9 +392,11 @@ class State(HydraHeadApp):
                 # ax1.plot(df_oracle2['FUNDING'], df_oracle3['FUNDING'])
 
                 for frame in [df_oracle2, df_oracle3]:
-                    ax1.plot(frame['YEAR'], frame['FUNDING'])
-                    ax2.plot(frame['YEAR'], frame['ACCIDENTS'])
-                    
+                    ax1.plot(frame['YEAR'], frame['FUNDING'], label=frame['STATE_NAME'].loc[0])
+                    ax2.plot(frame['YEAR'], frame['ACCIDENTS'], label=frame['STATE_NAME'].loc[0])
+
+                ax1.legend()
+                ax2.legend()
 
                 # df = pd.concat([df_oracle2, df_oracle3], keys=['trail1', 'trail2'])
                 # dfgroup = df.groupby(['YEAR', 'Key'])
@@ -409,7 +411,7 @@ class State(HydraHeadApp):
                     tick.set_fontsize(6)
                 ax2.set_xticks(df_oracle2['YEAR'])
                 ax1.set_xticks(df_oracle2['YEAR'])
-                print(states)
+                #print(states)
 
                 st.pyplot(fig=plt)
 
@@ -418,7 +420,7 @@ class State(HydraHeadApp):
 
                 if st.button("Compare previous two with another state?") or st.session_state.another_state:
                     st.session_state.another_state = True
-                    st.write('Why? Hot shot over here comparing 3 states smh')
+                    #st.write('Why? Hot shot over here comparing 3 states smh')
                     
                     if self.state3 not in states:
                         states.append(self.state3)
@@ -428,8 +430,8 @@ class State(HydraHeadApp):
                         if mod not in modified_states:
                             modified_states.append(mod)
 
-                    print(states)
-                    print(modified_states)
+                    # print(states)
+                    # print(modified_states)
 
                     for index, val in enumerate(modified_states):
                         if len(modified_states) == 1:
@@ -460,7 +462,7 @@ class State(HydraHeadApp):
                     # ie if state1 was Alabama and state2 is arkansas you'll get ('Alabama', 'Alabama', 'Arkansas')
                     # Too tired to fix. But really, it doesn't matter.
                     # print(query)
-                    print(where)
+                    #print(where)
 
                     # print(df_oracle2)
                     # wtf? Why aren't isn't the previ
@@ -470,12 +472,12 @@ class State(HydraHeadApp):
                     # Wtf? The dataframe printed completely ignores the previous state/funding values that were selected.
                     # I don't see how thats possible when the query that prints has the 2 different states?!?
                     st.write(df_oracle4)
-                    print(df_oracle4)
-                    for col in df_oracle4:
-                        print(col)
-
-                    for val in df_oracle4['STATE_NAME']:
-                        print(val)
+                    # print(df_oracle4)
+                    # for col in df_oracle4:
+                    #     print(col)
+                    #
+                    # for val in df_oracle4['STATE_NAME']:
+                    #     print(val)
                     # frames = [df_oracle2, df_oracle3]
                     # result = pd.concat(frames)
                     # st.write(result)
@@ -483,7 +485,7 @@ class State(HydraHeadApp):
                     # df_oracle2['Key'] = 'trail1'
                     # df_oracle3['Key'] = 'trail2'
 
-                    # fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1)
+                    fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1)
                     ax1.set_title('Funding')
                     ax1.set_ylabel('Dollar Amount')
 
@@ -493,9 +495,17 @@ class State(HydraHeadApp):
                     # ax2.plot(df_oracle2['YEAR'], df_oracle3['YEAR'], df_oracle2['ACCIDENTS'], df_oracle3['ACCIDENTS'])
                     # ax1.plot(df_oracle2['FUNDING'], df_oracle3['FUNDING'])
 
+                   ##This dataframe index sometimes gets screwed up dependin
+                    df_oracle4 = df_oracle4.reset_index()
+                    #st.write(df_oracle4)
+
                     for frame in [df_oracle2, df_oracle3, df_oracle4]:
-                        ax1.plot(frame['YEAR'], frame['FUNDING'])
-                        ax2.plot(frame['YEAR'], frame['ACCIDENTS'])
+                        ax1.plot(frame['YEAR'], frame['FUNDING'], label=frame['STATE_NAME'].loc[0])
+                        ax2.plot(frame['YEAR'], frame['ACCIDENTS'], label=frame['STATE_NAME'].loc[0])
+
+                    ax1.legend()
+                    ax2.legend()
+
 
                     # df = pd.concat([df_oracle2, df_oracle3], keys=['trail1', 'trail2'])
                     # dfgroup = df.groupby(['YEAR', 'Key'])
@@ -510,7 +520,7 @@ class State(HydraHeadApp):
                         tick.set_fontsize(6)
                     ax2.set_xticks(df_oracle2['YEAR'])
                     ax1.set_xticks(df_oracle2['YEAR'])
-                    print(states)
+                    #print(states)
                     #plt.legend(ax1.get_legend_handle_labels(), ax2.get_legend_handle_labels())
 
                     st.pyplot(fig=plt)
