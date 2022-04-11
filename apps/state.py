@@ -15,6 +15,9 @@ plt.style.use('default')
 
 class State(HydraHeadApp):
 
+    def __init__(self):
+        self.years = ()
+
     latitude = 0.0
     longitude = 0.0
     state1 = ""
@@ -32,6 +35,7 @@ class State(HydraHeadApp):
             'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 
             'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 
             'West Virginia', 'Wisconsin', 'Wyoming') 
+
 
     def update_state(self, name):
         match name:
@@ -241,14 +245,9 @@ class State(HydraHeadApp):
             where = "WHERE state_name IN ("
             states = []
             modified_states = []
-            
-            # Example code to get data from database using cursor and connection object
-            #state = st.text_input("Enter State: ")
-            #states = []
-            #st.sidebar.header('State', anchor = None)
-            #state = st.sidebar.selectbox(
-            #    "Select State", self.state_names
-            #)
+            year_where = "WHERE EXTRACT(year FROM start_time) IN ("
+            #print(self.years)
+
             if self.state1 not in states:
                 states.append(self.state1)
 
@@ -256,9 +255,6 @@ class State(HydraHeadApp):
                 mod = "\'" + val + "\'"
                 if mod not in modified_states:
                     modified_states.append(mod)
-
-            print(states)
-            print(modified_states)
 
             for index, val in enumerate(modified_states):
                 if len(modified_states) > 1:
@@ -270,6 +266,18 @@ class State(HydraHeadApp):
                     where = where[:len(where) - 2] + ")"
 
 
+            #year_list = []
+            value = self.years[0]
+            while value != self.years[1]:
+                #year_list.append(value)
+                year_where += str(value) + ", "
+                value += 1
+            year_where += str(value) + ")"
+
+            #year_where += str(self.years[0]) + ", " + str(self.years[1]) + ")"
+
+            print("does this print?")
+            print(year_where)
             #print(where)
             query = f"""WITH cte_funding AS(
                     SELECT sname AS state_name, year, funding
@@ -278,6 +286,7 @@ class State(HydraHeadApp):
                     cte_accidents AS (
                     SELECT COUNT(id) AS accidents, EXTRACT(year FROM start_time) AS year, state_name
                     FROM "J.POULOS".accident
+                    {year_where}
                     GROUP BY state_name, EXTRACT(year FROM start_time))
 
                     SELECT * FROM cte_funding NATURAL JOIN cte_accidents
@@ -349,6 +358,7 @@ class State(HydraHeadApp):
                         cte_accidents AS (
                         SELECT COUNT(id) AS accidents, EXTRACT(year FROM start_time) AS year, state_name
                         FROM "J.POULOS".accident
+                        {year_where}
                         GROUP BY state_name, EXTRACT(year FROM start_time))
 
                         SELECT * FROM cte_funding NATURAL JOIN cte_accidents
@@ -452,6 +462,7 @@ class State(HydraHeadApp):
                             cte_accidents AS (
                             SELECT COUNT(id) AS accidents, EXTRACT(year FROM start_time) AS year, state_name
                             FROM "J.POULOS".accident
+                            {year_where}
                             GROUP BY state_name, EXTRACT(year FROM start_time))
 
                             SELECT * FROM cte_funding NATURAL JOIN cte_accidents
@@ -560,6 +571,7 @@ class State(HydraHeadApp):
             2016, 2021, (2016, 2017)
         )
 
+        self.years = year_slider
         # multiselect weather. passes the condition to the weather function
         st.sidebar.header('Weather', anchor = None)
         weather_multiselect = st.sidebar.multiselect(
