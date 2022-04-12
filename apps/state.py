@@ -596,7 +596,7 @@ class State(HydraHeadApp):
             'Select Time',
             ['12:00 AM - 02:59 AM', '03:00 AM - 05:59 AM',
              '06:00 AM - 08:59 AM', '09:00 AM - 11:59 AM',
-             '12:00 PM - 02:59 PM', '03:00 PM - 05:59 PM'
+             '12:00 PM - 02:59 PM', '03:00 PM - 05:59 PM',
              '06:00 PM - 08:59 PM', '09:00 PM - 11:59 PM']
         )
         self.time_condition(time_multiselect)
