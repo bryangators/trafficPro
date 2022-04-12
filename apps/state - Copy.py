@@ -9,16 +9,35 @@ import datetime
 import altair as alt
 import pydeck as pdk
 from PIL import Image
+import matplotlib.pyplot as plt
+plt.style.use('default')
 
 
 class State(HydraHeadApp):
 
-    # latitude longitude
+    def __init__(self):
+        self.years = ()
 
     latitude = 0.0
     longitude = 0.0
+    state1 = ""
+    state2 = ""
+    state3 = ""
+    condition = ""
+    df_city = pd.DataFrame(columns = ['lon', 'lat'])
+    cursor = oracle_db.connection.cursor()
+    state_name = ('Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 
+            'Connecticut', 'Delaware', 'Florida', 'Georgia', 'Idaho', 
+            'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine', 
+            'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 
+            'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey', 
+            'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 
+            'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 
+            'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 
+            'West Virginia', 'Wisconsin', 'Wyoming') 
 
-    def state(self, name):
+
+    def update_state(self, name):
         match name:
             case "Alabama":
                 self.latitude = 32.318230
@@ -216,9 +235,6 @@ class State(HydraHeadApp):
                 self.latitude = 43.075970
                 self.longitude = -107.290283   
 
-<<<<<<< Updated upstream
-    def run(self):
-=======
     def load_graphs(self):
         # where = "WHERE state_name = "
         col1, col2 = st.columns(2)
@@ -285,34 +301,263 @@ class State(HydraHeadApp):
             
             fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize = (5, 3))
         
->>>>>>> Stashed changes
 
-        # logos
-        l1 = Image.open('images/logo.png')
+            ax1.set_title('Funding')
+            ax1.set_ylabel('Dollar Amount')
+        
+            ax2.set_title('Amount of Accidents', fontsize=12)
+            ax2.set_xlabel('Year', fontsize=12)
+            ax2.set_ylabel('Accidents')
+            
+            ax2.plot(df_oracle2['YEAR'], df_oracle2['ACCIDENTS'])
+            ax1.plot(df_oracle2['YEAR'], df_oracle2['FUNDING'])
+           
+
+            for tick in ([ax1.title, ax1.xaxis.label, ax1.yaxis.label, ax2.title,
+                        ax2.xaxis.label, ax2.yaxis.label] + ax1.get_xticklabels() +
+                        ax2.get_xticklabels() + ax1.get_yticklabels() + ax2.get_yticklabels()):
+                tick.set_fontsize(6)
+            ax2.set_xticks(df_oracle2['YEAR'])
+            ax1.set_xticks(df_oracle2['YEAR'])
+            st.pyplot(fig=plt)
+
+            if "load_state" not in st.session_state:
+                st.session_state.load_state = False
+
+            if st.button("Compare this state with another?") or st.session_state.load_state:
+                st.session_state.load_state = True
+                #st.write('Why? One state should be good enough for you')
+                
+                if self.state2 not in states:
+                    states.append(self.state2)
+
+                for val in states:
+                    mod = "\'" + val + "\'"
+                    if mod not in modified_states:
+                        modified_states.append(mod)
+
+                # print(states)
+                # print(modified_states)
+
+                for index, val in enumerate(modified_states):
+                    if len(modified_states) == 1:
+                        break
+                    if len(modified_states) > 1:
+                        where = where[:len(where) - 1]
+                        #print(where)
+                        #where += ", "
+                    where += modified_states[index] + ", "
+                    if index == len(modified_states) - 1:
+                        where = where[:len(where) - 2] + ")"
+            with col2:
+                # print(where)
+                query = f"""WITH cte_funding AS(
+                        SELECT sname AS state_name, year, funding
+                        FROM "J.POULOS".state_fund),
+
+                        cte_accidents AS (
+                        SELECT COUNT(id) AS accidents, EXTRACT(year FROM start_time) AS year, state_name
+                        FROM "J.POULOS".accident
+                        {year_where}
+                        GROUP BY state_name, EXTRACT(year FROM start_time))
+
+                        SELECT * FROM cte_funding NATURAL JOIN cte_accidents
+                        {where}
+                        ORDER BY year"""
+
+                #for debugging purposes. A previous sate shows up but that doesn't screw up the sql code.
+                # ie if state1 was Alabama and state2 is arkansas you'll get ('Alabama', 'Alabama', 'Arkansas')
+                # Too tired to fix. But really, it doesn't matter.
+                #print(query)
+                #print(where)
+
+                #print(df_oracle2)
+                #wtf? Why aren't isn't the previ
+                df_oracle3 = pd.read_sql(query, con=oracle_db.connection)
+
+                # Wtf? The dataframe printed completely ignores the previous state/funding values that were selected.
+                # I don't see how thats possible when the query that prints has the 2 different states?!?
+                st.write(df_oracle3)
+                # print(df_oracle3)
+                # for col in df_oracle3:
+                #     print(col)
+                #
+                # for val in df_oracle3['STATE_NAME']:
+                #     print(val)
+                #frames = [df_oracle2, df_oracle3]
+                #result = pd.concat(frames)
+                #st.write(result)
+
+                # df_oracle2['Key'] = 'trail1'
+                # df_oracle3['Key'] = 'trail2'
+
+                fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1)
+                ax1.set_title('Funding')
+                ax1.set_ylabel('Dollar Amount')
+
+                ax2.set_title('Amount of Accidents', fontsize=12)
+                ax2.set_xlabel('Year', fontsize=12)
+                ax2.set_ylabel('Accidents')
+                # ax2.plot(df_oracle2['YEAR'], df_oracle3['YEAR'], df_oracle2['ACCIDENTS'], df_oracle3['ACCIDENTS'])
+                # ax1.plot(df_oracle2['FUNDING'], df_oracle3['FUNDING'])
+
+                for frame in [df_oracle2, df_oracle3]:
+                    ax1.plot(frame['YEAR'], frame['FUNDING'], label=frame['STATE_NAME'].loc[0])
+                    ax2.plot(frame['YEAR'], frame['ACCIDENTS'], label=frame['STATE_NAME'].loc[0])
+
+                ax1.legend()
+                ax2.legend()
+
+                # df = pd.concat([df_oracle2, df_oracle3], keys=['trail1', 'trail2'])
+                # dfgroup = df.groupby(['YEAR', 'Key'])
+                # plt = dfgroup.sum().unstack('Key').plot()
+
+                #plt.subplots_adjust(bottom=0.000000000000000000001)
+               
+                
+                for tick in ([ax1.title, ax1.xaxis.label, ax1.yaxis.label, ax2.title,
+                            ax2.xaxis.label, ax2.yaxis.label] + ax1.get_xticklabels() +
+                            ax2.get_xticklabels() + ax1.get_yticklabels() + ax2.get_yticklabels()):
+                    tick.set_fontsize(6)
+                ax2.set_xticks(df_oracle2['YEAR'])
+                ax1.set_xticks(df_oracle2['YEAR'])
+                #print(states)
+
+                st.pyplot(fig=plt)
+
+                if "another_state" not in st.session_state:
+                    st.session_state.another_state = False
+
+                if st.button("Compare previous two with another state?") or st.session_state.another_state:
+                    st.session_state.another_state = True
+                    #st.write('Why? Hot shot over here comparing 3 states smh')
+                    
+                    if self.state3 not in states:
+                        states.append(self.state3)
+
+                    for val in states:
+                        mod = "\'" + val + "\'"
+                        if mod not in modified_states:
+                            modified_states.append(mod)
+
+                    # print(states)
+                    # print(modified_states)
+
+                    for index, val in enumerate(modified_states):
+                        if len(modified_states) == 1:
+                            break
+                        if len(modified_states) > 1:
+                            where = where[:len(where) - 1]
+                            # print(where)
+                            # where += ", "
+                        where += modified_states[index] + ", "
+                        if index == len(modified_states) - 1:
+                            where = where[:len(where) - 2] + ")"
+
+                    # print(where)
+                    query = f"""WITH cte_funding AS(
+                            SELECT sname AS state_name, year, funding
+                            FROM "J.POULOS".state_fund),
+
+                            cte_accidents AS (
+                            SELECT COUNT(id) AS accidents, EXTRACT(year FROM start_time) AS year, state_name
+                            FROM "J.POULOS".accident
+                            {year_where}
+                            GROUP BY state_name, EXTRACT(year FROM start_time))
+
+                            SELECT * FROM cte_funding NATURAL JOIN cte_accidents
+                            {where}
+                            ORDER BY year"""
+
+                    # for debugging purposes. A previous sate shows up but that doesn't screw up the sql code.
+                    # ie if state1 was Alabama and state2 is arkansas you'll get ('Alabama', 'Alabama', 'Arkansas')
+                    # Too tired to fix. But really, it doesn't matter.
+                    # print(query)
+                    #print(where)
+
+                    # print(df_oracle2)
+                    # wtf? Why aren't isn't the previ
+                    df_oracle4 = pd.read_sql(query, con=oracle_db.connection)
+                    df_oracle4 = df_oracle4[df_oracle4['STATE_NAME'] == states[len(states)-1]]
+
+                    # Wtf? The dataframe printed completely ignores the previous state/funding values that were selected.
+                    # I don't see how thats possible when the query that prints has the 2 different states?!?
+                    st.write(df_oracle4)
+                    # print(df_oracle4)
+                    # for col in df_oracle4:
+                    #     print(col)
+                    #
+                    # for val in df_oracle4['STATE_NAME']:
+                    #     print(val)
+                    # frames = [df_oracle2, df_oracle3]
+                    # result = pd.concat(frames)
+                    # st.write(result)
+
+                    # df_oracle2['Key'] = 'trail1'
+                    # df_oracle3['Key'] = 'trail2'
+
+                    fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1)
+                    ax1.set_title('Funding')
+                    ax1.set_ylabel('Dollar Amount')
+
+                    ax2.set_title('Amount of Accidents', fontsize=12)
+                    ax2.set_xlabel('Year', fontsize=12)
+                    ax2.set_ylabel('Accidents')
+                    # ax2.plot(df_oracle2['YEAR'], df_oracle3['YEAR'], df_oracle2['ACCIDENTS'], df_oracle3['ACCIDENTS'])
+                    # ax1.plot(df_oracle2['FUNDING'], df_oracle3['FUNDING'])
+
+                   ##This dataframe index sometimes gets screwed up dependin
+                    df_oracle4 = df_oracle4.reset_index()
+                    #st.write(df_oracle4)
+
+                    for frame in [df_oracle2, df_oracle3, df_oracle4]:
+                        ax1.plot(frame['YEAR'], frame['FUNDING'], label=frame['STATE_NAME'].loc[0])
+                        ax2.plot(frame['YEAR'], frame['ACCIDENTS'], label=frame['STATE_NAME'].loc[0])
+
+                    ax1.legend()
+                    ax2.legend()
+
+
+                    # df = pd.concat([df_oracle2, df_oracle3], keys=['trail1', 'trail2'])
+                    # dfgroup = df.groupby(['YEAR', 'Key'])
+                    # plt = dfgroup.sum().unstack('Key').plot()
+
+                    # plt.subplots_adjust(bottom=0.000000000000000000001)
+                    
+
+                    for tick in ([ax1.title, ax1.xaxis.label, ax1.yaxis.label, ax2.title,
+                                ax2.xaxis.label, ax2.yaxis.label] + ax1.get_xticklabels() +
+                                ax2.get_xticklabels() + ax1.get_yticklabels() + ax2.get_yticklabels()):
+                        tick.set_fontsize(6)
+                    ax2.set_xticks(df_oracle2['YEAR'])
+                    ax1.set_xticks(df_oracle2['YEAR'])
+                    #print(states)
+                    #plt.legend(ax1.get_legend_handle_labels(), ax2.get_legend_handle_labels())
+
+                    st.pyplot(fig=plt)
+
+    
+
+    def load_sidebar(self):
         l2 = Image.open('images/logo2.png')
-        st.image(l1)
         st.sidebar.image(l2, width = 250)
 
         """
         This section is for the elements in the sidebar
         """
         # State selection
-        st.sidebar.header('State', anchor=None)
-        state_selectbox = st.sidebar.selectbox(
-            "Select State",
-            ('Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 
-            'Connecticut', 'Delaware', 'Florida', 'Georgia', 'Idaho', 
-            'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine', 
-            'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 
-            'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey', 
-            'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 
-            'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 
-            'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 
-            'West Virginia', 'Wisconsin', 'Wyoming') 
+        st.sidebar.header('State', anchor = None)
+        self.state1 = st.sidebar.selectbox(
+            "Select State", self.state_name    
         )
 
-        # calls the state function. updates the map to the state selected.
-        self.state(state_selectbox)
+        self.state2 = st.sidebar.selectbox(
+            "Select State 2", self.state_name    
+        )
+
+        self.state3 = st.sidebar.selectbox(
+            "Select State 3", self.state_name    
+        )
 
         # Date selection
         day = 'Accidents by Day'
@@ -328,12 +573,14 @@ class State(HydraHeadApp):
             2016, 2021, (2016, 2017)
         )
 
-        # multiselect weather
+        self.years = year_slider
+        # multiselect weather. passes the condition to the weather function
         st.sidebar.header('Weather', anchor = None)
         weather_multiselect = st.sidebar.multiselect(
             'Select Weather Condition',
-            ['Rain', 'Snow', 'Partly Cloudy', 'Tornado']
+            ['Rain', 'Snow', 'Partly Cloudy', 'Tornado', 'Clear', 'Scattered Clouds']
         )
+        self.weather_condition(weather_multiselect)
 
         # multiselect temperature
         st.sidebar.header('Temperature', anchor = None)
@@ -341,12 +588,8 @@ class State(HydraHeadApp):
             'Select Temperature',
             ['00 - 34 °F', '35 - 69 °F', '70 - 100 °F']
         )
-<<<<<<< Updated upstream
-
-=======
         self.temperature_condition(temperature_multiselect)
     
->>>>>>> Stashed changes
         # multiselect time
         time = 'Time'
         st.sidebar.header(time, anchor = None)
@@ -355,8 +598,6 @@ class State(HydraHeadApp):
             ['12:00 AM - 05:59 AM', '06:00 AM - 11:59 AM', 
             '12:00 PM - 05:59 PM', '06:00 PM - 11:59 PM']
         )
-<<<<<<< Updated upstream
-=======
         self.time_condition(time_multiselect)
 
     def load_map(self, current_state):
@@ -529,103 +770,28 @@ class State(HydraHeadApp):
 
         st.image(Image.open('images/logo_banner.png'), use_column_width = True)
         self.load_sidebar()
->>>>>>> Stashed changes
 
-        """
-        This section is for the main page elements
-        """
-        # creates a two column layout. col1 holds the map
-        # col2 holds the table
-        col1, col2 = st.columns(2)
+        # creates a two column layout.
+        col1, col2, col3 = st.columns(3)
         
         with col1:
-            # user input
-            name = st.text_input("Enter a city name")
+            # calls the state function. 
+            # updates the left map to the state selected.
+            self.update_state(self.state1)
+            self.city("1")
+            self.load_map(self.state1)
 
-            # query the city input by user
-            cursor = oracle_db.connection.cursor()
-            city = """SELECT * FROM city WHERE name = :city_name"""
-            cursor.execute(city, city_name = name)
-            
-            l1 = 0.0
-            l2 = 0.0
-
-            # get the latitude
-            latitude = """SELECT latitude FROM city WHERE name = :city_name"""
-            cursor.execute(latitude, city_name = name)
-            for row in cursor:
-                lat = row[0]
-                self.latitude = float(lat)
-            
-            # get the longitude
-            longitude = """SELECT longitude FROM city WHERE name = :city_name"""
-            cursor.execute(longitude, city_name = name)
-            for row in cursor:
-                long = row[0]
-                self.longitude = float(long) 
-
-            # dataframe and map for the state.
-            # this should grab the longitude and latitude and append it to
-            # the dataframe. It should then update the pdk.Layer of the map 
-            # with a scatterplot from the lat and long. It's not updating as expected.
-            state_lat_long = """SELECT start_long, start_lat 
-                                FROM "J.POULOS".Accident 
-                                WHERE ROWNUM < 20 AND state_name = :state"""
-            
-            cursor.execute(state_lat_long, state = state_selectbox)
-            df_state = pd.DataFrame(columns = ['lon', 'lat'])
-            for row in cursor:
-                lon = row[0]
-                lat = row[1]
-                temp1 = float(lon)
-                temp2 = float(lat)
-                df_state.append({'lon' : temp1, 'lat' : temp2}, ignore_index = True)   
-
-            st.pydeck_chart(pdk.Deck(
-                map_style = 'mapbox://styles/mapbox/light-v9',
-                initial_view_state = pdk.ViewState(
-                    latitude = self.latitude,
-                    longitude = self.longitude,
-                    zoom = 5,
-                    pitch = 10,
-                ),
-                layers = [
-                    pdk.Layer(
-                        'ScatterplotLayer',
-                        data = df_state,
-                        get_position = '[lat, lon]',
-                        radius = 200,
-                        elevation_scale = 4,
-                        elevation_range = [0, 1000],
-                        pickable = True,
-                        extruded = True,
-                        get_color = '[200, 30, 0, 160]',
-                        get_radius = 400,
-                    ),
-                ],
-            ))
-
-        # table output
         with col2:
-            st.header('State Data', anchor = None)
-            with st.expander("See details"):
-                st.write('Add some additional text here')
-                
-            df_table = pd.DataFrame(
-                np.random.randn(10, 5),
-                columns=('col %d' % i for i in range(5))
-            )
-            st.table(df_table)
-
-        # data frame and bar graph
-        df_graph = pd.DataFrame({
-            'State': ['Florida', 'Michigan', 'Texas', 'Arizona', 'Nevada', 
-                    'NY', 'Georgia', 'Maryland', 'California', 'New Mexico'],
-            'Accident Totals': [450000, 250000, 105345, 500450, 320032, 
-                                75345, 350450, 320032, 145345, 600450]
-        })
-        chart_data = alt.Chart(df_graph).mark_bar().encode(
-            x = 'State', 
-            y = 'Accident Totals'
-        ).properties(height = 500, title = "Bar Graph")
-        st.altair_chart(chart_data, use_container_width = True)                
+            # calls the state function. 
+            # updates the right map to the state selected.
+            self.update_state(self.state2)
+            self.city("2")
+            self.load_map(self.state2)
+        
+        with col3:
+            st.text_area("Map Info", "Text Here", height = 500)
+            
+        self.load_graphs()
+        self.load_table()
+        
+       
