@@ -115,7 +115,7 @@ class Home(HydraHeadApp):
         st.sidebar.header(day, anchor = None)
         
         calendar = st.sidebar.date_input(
-            "Date:", datetime.date(2019, 4, 1)
+            "Date:", datetime.datetime(2019, 4, 1)
         )
 
         # Year slider
@@ -201,7 +201,7 @@ class Home(HydraHeadApp):
         # Outputs empty table.
         calendar_day = f"""SELECT *
                         FROM "J.POULOS".Accident 
-                        WHERE TO_CHAR(TRUNC(start_time), 'YYYY-MON-DD') = TO_CHAR({calendar})
-                        AND ROWNUM < 20"""
-                        
-        st.write(pd.read_sql(calendar_day, con = oracle_db.connection))     
+                        WHERE trunc(start_time) = to_date({calendar}, 'YYYY-MM-DD')
+                        FETCH FIRST 10 ROWS ONLY
+                        """
+        st.write(pd.read_sql(calendar_day, con = oracle_db.connection))
