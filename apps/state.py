@@ -1,3 +1,4 @@
+from sqlite3 import Cursor
 import streamlit as st
 import re
 from hydralit import HydraHeadApp
@@ -24,9 +25,13 @@ class State(HydraHeadApp):
     state2 = ""
     state3 = ""
     condition = ""
+    temperature = ""
+    time_query = pd.DataFrame()
+    wthr_query = pd.DataFrame()
+    temp_query = pd.DataFrame()
     df_city = pd.DataFrame(columns = ['lon', 'lat'])
     cursor = oracle_db.connection.cursor()
-    state_name = ('Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 
+    state_name = ('Alabama', 'Arizona', 'Arkansas', 'California', 'Colorado', 
             'Connecticut', 'Delaware', 'Florida', 'Georgia', 'Idaho', 
             'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine', 
             'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 
@@ -36,16 +41,11 @@ class State(HydraHeadApp):
             'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 
             'West Virginia', 'Wisconsin', 'Wyoming') 
 
-
     def update_state(self, name):
         match name:
             case "Alabama":
                 self.latitude = 32.318230
                 self.longitude = -86.902298
-
-            case "Alaska":
-                self.latitude = 66.160507
-                self.longitude = -153.369141
 
             case "Arizona":
                 self.latitude = 34.048927
@@ -277,7 +277,7 @@ class State(HydraHeadApp):
             #year_where += str(self.years[0]) + ", " + str(self.years[1]) + ")"
 
             print("does this print?")
-            print(year_where)
+           
             #print(where)
             query = f"""WITH cte_funding AS(
                     SELECT sname AS state_name, year, funding
@@ -295,13 +295,11 @@ class State(HydraHeadApp):
 
             #{where}
             #print(query)
-
             df_oracle2 = pd.read_sql(query, con=oracle_db.connection)
             st.write(df_oracle2)
             
             fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize = (5, 3))
         
-
             ax1.set_title('Funding')
             ax1.set_ylabel('Dollar Amount')
         
@@ -468,7 +466,7 @@ class State(HydraHeadApp):
                             SELECT * FROM cte_funding NATURAL JOIN cte_accidents
                             {where}
                             ORDER BY year"""
-
+                    
                     # for debugging purposes. A previous sate shows up but that doesn't screw up the sql code.
                     # ie if state1 was Alabama and state2 is arkansas you'll get ('Alabama', 'Alabama', 'Arkansas')
                     # Too tired to fix. But really, it doesn't matter.
@@ -536,8 +534,6 @@ class State(HydraHeadApp):
 
                     st.pyplot(fig=plt)
 
-    
-
     def load_sidebar(self):
         l2 = Image.open('images/logo2.png')
         st.sidebar.image(l2, width = 250)
@@ -578,7 +574,10 @@ class State(HydraHeadApp):
         st.sidebar.header('Weather', anchor = None)
         weather_multiselect = st.sidebar.multiselect(
             'Select Weather Condition',
-            ['Rain', 'Snow', 'Partly Cloudy', 'Tornado', 'Clear', 'Scattered Clouds']
+            ['Clear', 'Cloudy', 'Drizzle', 'Fair', 'Fog', 'Hail', 'Haze', 'Heavy Rain', 
+            'Light Drizzle', 'Light Freezing Drizzle', 'Light Rain', 'Light Snow', 
+            'Mostly Cloudy', 'Overcast', 'Partly Cloudy', 'Patched of Fog', 'Rain', 
+            'Scattered Clouds', 'Snow', 'Thunderstorm', 'Thunderstorms and Rain', 'Tornado']
         )
         self.weather_condition(weather_multiselect)
 
@@ -586,7 +585,7 @@ class State(HydraHeadApp):
         st.sidebar.header('Temperature', anchor = None)
         temperature_multiselect = st.sidebar.multiselect(
             'Select Temperature',
-            ['00 - 34 °F', '35 - 69 °F', '70 - 100 °F']
+            ['Temp < 00 °F', '00 - 19 °F', '20 - 39 °F', '40 - 59 °F', '60 - 79 °F', 'Temp > 80 °F']
         )
         self.temperature_condition(temperature_multiselect)
 
@@ -595,8 +594,10 @@ class State(HydraHeadApp):
         st.sidebar.header(time, anchor = None)
         time_multiselect = st.sidebar.multiselect(
             'Select Time',
-            ['12:00 AM - 05:59 AM', '06:00 AM - 11:59 AM', 
-            '12:00 PM - 05:59 PM', '06:00 PM - 11:59 PM']
+            ['12:00 AM - 02:59 AM', '03:00 AM - 05:59 AM',
+             '06:00 AM - 08:59 AM', '09:00 AM - 11:59 AM',
+             '12:00 PM - 02:59 PM', '03:00 PM - 05:59 PM'
+             '06:00 PM - 08:59 PM', '09:00 PM - 11:59 PM']
         )
         self.time_condition(time_multiselect)
 
@@ -704,36 +705,118 @@ class State(HydraHeadApp):
             self.df_city.loc[i] = [temp1, temp2]
             i += 1
 
-    def weather_condition(self, condition):
-        # Gets all of the conditions from the weather selction box 
-        # to pass to the query below. creates a comma separted string
-        # of the conditions.
-        for i in range(0, len(condition)):
-            self.condition = self.condition + str(condition[i])
-            if not i == len(condition) - 1:
-                 self.condition = self.condition + ", "
+    def weather_condition(self, wthr_condition):
+        # Takes all of the conditions in the wthr_condition 
+        # parameter and builds a comma separted string of 
+        # the conditions for the query below.
+        # wthr_condition is passed in from the multiselect 
+        # dropdown in the sidebar function.
+        self.condition = "("
+        for i in range(0, len(wthr_condition)):
+            self.condition = self.condition + "\'" + str(wthr_condition[i]) + "\'"
+            if not i == len(wthr_condition) - 1:
+                self.condition = self.condition + ", "
+        self.condition += ")"
+        
+        # Query for weather condition. 
+        if not len(wthr_condition) == 0:
+            weather = f"""SELECT city_name, condition
+                        FROM "J.POULOS".Accident
+                        WHERE ROWNUM < 1000 AND condition IN {self.condition} 
+                        ORDER by condition ASC"""
+            self.wthr_query = pd.read_sql(weather, con = oracle_db.connection)                
+        
+    def temperature_condition(self, temp_condition):
+        # list to store the range of temperatures selected.
+        # adds every selected value to the list.
+        tempRange = []
+        
+        for i in range(0, len(temp_condition)):
+            match temp_condition[i]:
+                case "Temp < 00 °F":
+                    tempRange.append(-100)
+                    tempRange.append(-1)
+                case "00 - 19 °F":
+                    tempRange.append(0)
+                    tempRange.append(19)    
+                case "20 - 39 °F":
+                    tempRange.append(20)
+                    tempRange.append(39)
+                case "40 - 59 °F":
+                    tempRange.append(40)
+                    tempRange.append(59) 
+                case "60 - 79 °F":
+                    tempRange.append(60)
+                    tempRange.append(79)
+                case "Temp > 80 °F":
+                    tempRange.append(80) 
+                    tempRange.append(200)   
 
-        # Needs to be fixed.
-        # query for getting accidents based on weather condition
-        # currently only allows for a single selection from the checkbox.
-        # additional conditions in the string are ignored. 
-        if not len(condition) == 0:
-            weather = """SELECT *
-                        FROM "J.POULOS".Accident 
-                        WHERE ROWNUM < 20 AND condition IN :wthr"""
-            self.cursor.execute(weather, wthr =  self.condition)      
+        # Query for temp range condition. sorts the tempRange list
+        # and grabs the lowest and highest temperature (index 0, index len - 1),
+        # i.e. the temperature range we want to query
+        if not len(tempRange) == 0:
+            tempRange.sort()
+            low = tempRange[0]
+            high = tempRange[len(tempRange) - 1]
+            temperature = f"""SELECT state_name, temperature
+                        FROM "J.POULOS".Accident
+                        WHERE ROWNUM < 1000 AND temperature >= {low} AND temperature <= {high}
+                        ORDER BY temperature DESC"""       
+            self.temp_query = pd.read_sql(temperature, con = oracle_db.connection)
 
-    def temperature_condition(self, temperature):
-        # add queries and functionality
-        # for temperature in the sidebar
-        for i in range(0, len(temperature)):
-            st.write(temperature)
-
-    def time_condition(self, time):
-        # add queries and functionality
-        # for time in the sidebar
-        for i in range(0, len(time)):
-            st.write(time)
+    def time_condition(self, time_condition):
+        timeRange = []
+        
+        # adds the selected time conditions to
+        # the timeRange list.
+        for i in range(0, len(time_condition)):
+            match time_condition[i]:
+                case "12:00 AM - 02:59 AM":
+                    timeRange.append("00:00:00")
+                    timeRange.append("02:59:59")
+                
+                case "03:00 AM - 05:59 AM":
+                    timeRange.append("03:00:00")
+                    timeRange.append("05:59:59") 
+                
+                case "06:00 AM - 08:59 AM":
+                    timeRange.append("06:00:00")
+                    timeRange.append("08:59:59")
+               
+                case "09:00 AM - 11:59 AM":
+                    timeRange.append("09:00:00")
+                    timeRange.append("11:59:59") 
+                
+                case "12:00 PM - 02:59 PM":
+                    timeRange.append("12:00:00")
+                    timeRange.append("14:59:59")              
+                
+                case "03:00 PM - 05:59 PM":
+                    timeRange.append("15:00:00")
+                    timeRange.append("17:59:59")    
+                
+                case "06:00 PM - 08:59 PM":
+                    timeRange.append("18:00:00")
+                    timeRange.append("20:59:59")
+                
+                case "09:00 PM - 11:59 PM":
+                    timeRange.append("21:00:00")
+                    timeRange.append("23:59:59") 
+        
+        # sorts the timeRange list. 
+        # grabs the 0 index and last index,
+        # i.e. the range of time we want
+        if not len(timeRange) == 0:
+            timeRange.sort()
+            start = "\'" + timeRange[0] + "\'"
+            end = "\'" + timeRange[len(timeRange) - 1] + "\'" 
+            
+            time = f"""SELECT city_name, start_time 
+                       FROM "J.POULOS".Accident
+                       WHERE ROWNUM < 1000 
+                       AND to_char(start_time, 'hh24:mi:ss') BETWEEN {start} AND {end}"""
+            self.time_query = pd.read_sql(time, con = oracle_db.connection)
 
     def load_table(self):
         st.header('State Data', anchor = None)
@@ -769,9 +852,9 @@ class State(HydraHeadApp):
             self.load_map(self.state2)
         
         with col3:
-            st.text_area("Map Info", "Text Here", height = 500)
-            
+            st.text_area("Query Info", 
+                         "Weather Query: \n" + str(self.wthr_query) + "\n\n"
+                         "Temperature Query: \n" + str(self.temp_query) + "\n\n" + 
+                         "Time Query: \n" + str(self.time_query), height = 500)    
         self.load_graphs()
-        self.load_table()
-        
-       
+        self.load_table()  
