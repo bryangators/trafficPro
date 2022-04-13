@@ -736,16 +736,16 @@ class State(HydraHeadApp):
                 case "Temp < 00 °F":
                     tempRange.append(-100)
                     tempRange.append(-0.1)
-                case "00 - 19 °F":
+                case "00 - 19.9 °F":
                     tempRange.append(0)
                     tempRange.append(19.9)    
-                case "20 - 39 °F":
+                case "20 - 39.9 °F":
                     tempRange.append(20)
                     tempRange.append(39.9)
-                case "40 - 59 °F":
+                case "40 - 59.9 °F":
                     tempRange.append(40)
                     tempRange.append(59.9) 
-                case "60 - 79 °F":
+                case "60 - 79.9 °F":
                     tempRange.append(60)
                     tempRange.append(79.9)
                 case "Temp > 80 °F":
