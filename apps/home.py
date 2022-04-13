@@ -200,6 +200,15 @@ class Home(HydraHeadApp):
         else:
             result += f""" EXTRACT(year FROM start_time) >= {self.year[0]}
                            AND EXTRACT(year FROM start_time) <= {self.year[1]} """
+
+        #weather
+        result += self.generate_weather_list()
+
+        #temperature
+        result += self.generate_temp_list()
+
+        #time
+        result += self.generate_time_list()                   
         
         # group by STATE, show only top 10
         result += f"""GROUP BY STATE_NAME 
