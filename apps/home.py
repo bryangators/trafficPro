@@ -12,6 +12,240 @@ import altair as alt
 
 class Home(HydraHeadApp):
 
+    def __init(self):
+        self.formatted_query = f""""""
+        self.day = None
+        self.year = None
+        self.weather = None
+        self.time = None
+        
+
+    def run(self):
+        l2 = Image.open('images/logo2.png')
+        st.image(Image.open('images/logo_banner.png'), use_column_width = True)
+
+        """
+        This section is for the elements in the sidebar
+        """
+        with st.sidebar:
+            
+            st.image(l2, width = 250)
+            date_choice = st.radio(
+                "Query by Date or Year Range",
+                ("Date", "Year")
+            )
+            
+            with st.form(key='form1'):
+
+                if (date_choice == 'Date'):
+                    # Date selection by day
+                    st.header('Accidents by Day', anchor = None)
+                    # date selector for queries. Has correct min and max dates
+                    self.day = st.date_input(
+                        "Date:", datetime.datetime(2020, 12, 30), min_value=datetime.datetime(2016, 2, 8), max_value=datetime.datetime(2020, 12, 30)
+                    )
+                else:
+                    # Year slider
+                    st.header('Accidents by Year', anchor = None)
+                    self.year = st.slider(
+                        'Select the range of years',
+                        2016, 2020, (2017, 2019)
+                    )
+                
+                # Weather options
+                # multiselect weather. passes the condition to the weather function
+                st.header('Weather', anchor = None)
+                self.weather = st.multiselect(
+                    'Select Weather Condition',
+                    ['Rain', 'Snow', 'Partly Cloudy', 'Tornado', 'Clear', 'Cloudy', 'Thunderstorm', 'Hail', 'Windy', 
+                    'Mostly Cloudy', 'Fair', 'Overcast', 'Scattered Clouds', 'Fog', 'Haze']
+                )
+
+                st.header('Temperature', anchor = None)
+                self.temp = st.multiselect(
+                    'Select Temperature',
+                    ['Temp < 00 °F', '00 - 19 °F', '20 - 39 °F', '40 - 59 °F', '60 - 79 °F', 'Temp > 80 °F']
+                )
+
+                # Time selection
+                st.header('Time', anchor = None)
+                self.time = st.multiselect(
+                    'Select Time',
+                    ['12:00 AM - 02:59 AM', '03:00 AM - 05:59 AM',
+                    '06:00 AM - 08:59 AM', '09:00 AM - 11:59 AM',
+                    '12:00 PM - 02:59 PM', '03:00 PM - 05:59 PM',
+                    '06:00 PM - 08:59 PM', '09:00 PM - 11:59 PM']
+                )
+
+                submitted = st.form_submit_button(label='Run Query')
+
+            self.dbstats()
+
+        """
+        This section is for the main page elements
+        """
+        self.formatted_query = self.generate_query(date_choice)
+        print(self.formatted_query)
+
+        # Data frame and map
+        df = pd.DataFrame(
+            np.random.randn(1000, 2) / [50, 50] + [37.76, -122.4],
+            columns = ['lat', 'lon']
+        )
+
+        st.pydeck_chart(pdk.Deck(
+            map_style = 'mapbox://styles/mapbox/light-v9',
+            initial_view_state = pdk.ViewState(
+                latitude = 37.0,
+                longitude = -98.0,
+                zoom = 3,
+                pitch = 10,
+            ),
+            layers = [
+                pdk.Layer(
+                    'ScatterplotLayer',
+                    data = df,
+                    get_position = '[lon, lat]',
+                    get_color = '[200, 30, 0, 160]',
+                    get_radius = 75,
+                ),
+            ],
+        ))
+
+        # Data frame and bar graph
+        df_graph = pd.DataFrame({
+            'State': ['Florida', 'Michigan', 'Texas', 'Arizona', 'Nevada', 
+                    'NY', 'Georgia', 'Maryland', 'California', 'New Mexico'],
+            'Accident Totals': [450000, 250000, 105345, 500450, 320032, 
+                                75345, 350450, 320032, 145345, 600450]
+        })
+        chart_data = alt.Chart(df_graph).mark_bar().encode(
+            x = 'State', 
+            y = 'Accident Totals',
+            color = 'Origin:N'
+        ).properties(height = 500, title = "Bar Graph").configure_range(
+            category={'scheme': 'yelloworangered'}
+        )
+        st.altair_chart(chart_data, use_container_width = True)
+
+        # preview table of query results
+        st.write(pd.read_sql(self.formatted_query + " FETCH FIRST 20 ROWS ONLY", con = oracle_db.connection))
+        
+    
+    def generate_query(self, date_choice):
+        result = f"""SELECT * 
+                     FROM "J.POULOS".ACCIDENT
+                     WHERE
+                     """
+
+        # add date conditions
+        if date_choice == 'Date':
+            result += f""" trunc(start_time) = to_date('{self.day}', 'YYYY-MM-DD') """
+        else:
+            result += f""" EXTRACT(year FROM start_time) >= {self.year[0]}
+                           AND EXTRACT(year FROM start_time) <= {self.year[1]} """
+        
+        # add weather conditions
+        result += self.generate_weather_list()
+
+        # add temperature conditions
+        result += self.generate_temp_list()
+
+        # add time conditions
+        result += self.generate_time_list()
+        
+        return result
+    
+    # helper function to format list of weather conditions chosen
+    def generate_weather_list(self):
+        result = f""" """
+
+        if self.weather:
+            first = True
+            for cond in self.weather: 
+                if first:
+                    result += f""" AND (condition LIKE '%{cond}%' """
+                    first = False
+                else: 
+                    result += f""" OR condition LIKE '%{cond}%' """ 
+            result += """) """     
+        return result
+
+    # helper function to format list of temp conditions chosen
+    def generate_temp_list(self):
+        
+        result = f""" """
+
+        tempRange = []
+        
+        for i in range(0, len(self.temp)):
+            match self.temp[i]:
+                case "Temp < 00 °F":
+                    tempRange.append((-100, -0.1))
+                case "00 - 19 °F":
+                    tempRange.append((0, 19.9))   
+                case "20 - 39 °F":
+                    tempRange.append((20,39.9))
+                case "40 - 59 °F":
+                    tempRange.append((40, 59.9))
+                case "60 - 79 °F":
+                    tempRange.append((60, 79.9))
+                case "Temp > 80 °F":
+                    tempRange.append((80, 200))
+        
+        if tempRange:
+            tempRange.sort()
+            first = True
+            for t in tempRange:
+                if first:
+                    result += f""" AND (temperature BETWEEN {t[0]} AND {t[1]} """
+                    first = False
+                else:
+                    result += f""" OR temperature BETWEEN {t[0]} AND {t[1]} """
+            result += f""") """       
+        return result
+
+    # helper function to format list of time conditions chosen
+    def generate_time_list(self):
+        result = f""" """
+        timeRange = []
+        
+        # adds the selected time conditions to
+        # the timeRange list.
+        for i in range(0, len(self.time)):
+            match self.time[i]:
+                case "12:00 AM - 02:59 AM":
+                    timeRange.append(("00:00:00", "02:59:59"))
+                case "03:00 AM - 05:59 AM":
+                    timeRange.append(("03:00:00", "05:59:59")) 
+                case "06:00 AM - 08:59 AM":
+                    timeRange.append(("06:00:00", "08:59:59"))
+                case "09:00 AM - 11:59 AM":
+                    timeRange.append(("09:00:00", "11:59:59")) 
+                case "12:00 PM - 02:59 PM":
+                    timeRange.append(("12:00:00", "14:59:59"))              
+                case "03:00 PM - 05:59 PM":
+                    timeRange.append(("15:00:00", "17:59:59"))    
+                case "06:00 PM - 08:59 PM":
+                    timeRange.append(("18:00:00", "20:59:59"))
+                case "09:00 PM - 11:59 PM":
+                    timeRange.append(("21:00:00", "23:59:59"))
+
+        
+
+        if timeRange:
+            timeRange.sort()
+            first = True
+            for t in timeRange:
+                if first:
+                    result += f""" AND (to_char(start_time, 'hh24:mi:ss') BETWEEN '{t[0]}' AND '{t[1]}' """
+                    first = False
+                else:
+                    result += f""" OR to_char(start_time, 'hh24:mi:ss') BETWEEN '{t[0]}' AND '{t[1]}' """
+            result += f""") """
+
+        return result
+
     # button for tuples in the database
     def dbstats(self):
 
@@ -98,110 +332,3 @@ class Home(HydraHeadApp):
                 str6 + str7 + str8 + str9 + str10 + str11,
                 height = 350
             )
-
-    def run(self):
-        cursor = oracle_db.connection.cursor()
-        l2 = Image.open('images/logo2.png')
-        st.image(Image.open('images/logo_banner.png'), use_column_width = True)
-
-        
-        """
-        This section is for the elements in the sidebar
-        """
-        st.sidebar.image(l2, width = 250)
-
-        # Date selection by day
-        day = 'Accidents by Day'
-        st.sidebar.header(day, anchor = None)
-        
-        calendar = st.sidebar.date_input(
-            "Date:", datetime.datetime(2019, 4, 1)
-        )
-
-        # Year slider
-        st.sidebar.header('Accidents by Year', anchor = None)
-        year_slider = st.sidebar.slider(
-            'Select the range of years',
-            2016, 2021, (2016, 2017)
-        )
-
-        # Weather options
-        st.sidebar.header('Select Weather Conditions', anchor = None)
-        w_clear = st.sidebar.checkbox('Clear')
-        w_rain = st.sidebar.checkbox('Rain')
-        w_snow = st.sidebar.checkbox('Snow')
-        w_tornado = st.sidebar.checkbox('Tornado')
-
-        # Temperature options
-        st.sidebar.header('Select Temperature', anchor = None)
-        temp1 = st.sidebar.checkbox('00 - 34 °F')
-        temp2 = st.sidebar.checkbox('35 - 69 °F')
-        temp3 = st.sidebar.checkbox('70 - 100 °F')
-
-        # Time selection
-        st.sidebar.header('Select Time', anchor = None)
-        st.sidebar.time_input('Select Time', datetime.time(8, 45))
-
-        self.dbstats()
-
-        """
-        This section is for the main page elements
-        """
-        # Data frame and map
-        df = pd.DataFrame(
-            np.random.randn(1000, 2) / [50, 50] + [37.76, -122.4],
-            columns = ['lat', 'lon']
-        )
-
-        st.pydeck_chart(pdk.Deck(
-            map_style = 'mapbox://styles/mapbox/light-v9',
-            initial_view_state = pdk.ViewState(
-                latitude = 37.0,
-                longitude = -98.0,
-                zoom = 3,
-                pitch = 10,
-            ),
-            layers = [
-                pdk.Layer(
-                    'ScatterplotLayer',
-                    data = df,
-                    get_position = '[lon, lat]',
-                    get_color = '[200, 30, 0, 160]',
-                    get_radius = 75,
-                ),
-            ],
-        ))
-
-        # Data frame and bar graph
-        df_graph = pd.DataFrame({
-            'State': ['Florida', 'Michigan', 'Texas', 'Arizona', 'Nevada', 
-                    'NY', 'Georgia', 'Maryland', 'California', 'New Mexico'],
-            'Accident Totals': [450000, 250000, 105345, 500450, 320032, 
-                                75345, 350450, 320032, 145345, 600450]
-        })
-        chart_data = alt.Chart(df_graph).mark_bar().encode(
-            x = 'State', 
-            y = 'Accident Totals',
-            color = 'Origin:N'
-        ).properties(height = 500, title = "Bar Graph").configure_range(
-            category={'scheme': 'yelloworangered'}
-        )
-        st.altair_chart(chart_data, use_container_width = True)
-
-        # Query for year slider. Outputs 20 rows
-        year_range = f"""SELECT * 
-                         FROM "J.POULOS".Accident 
-                         WHERE ROWNUM < 20 
-                         AND EXTRACT(year FROM start_time) >= {year_slider[0]}
-                         AND EXTRACT(year FROM start_time) <= {year_slider[1]}"""
-        st.write(pd.read_sql(year_range, con = oracle_db.connection))
-
-        # Query for calendar range.
-        # currently not returning what is expected.
-        # Outputs empty table.
-        calendar_day = f"""SELECT *
-                        FROM "J.POULOS".Accident 
-                        WHERE trunc(start_time) = to_date({calendar}, 'YYYY-MM-DD')
-                        FETCH FIRST 10 ROWS ONLY
-                        """
-        st.write(pd.read_sql(calendar_day, con = oracle_db.connection))
