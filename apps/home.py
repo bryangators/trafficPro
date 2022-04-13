@@ -113,8 +113,27 @@ class Home(HydraHeadApp):
         ))
 
         #Creates queries dynamically and stores the query code in USData
-        #USData = self.generate_query1(date_choice)
-        #df_graph = pd.read_sql_query(USData, con = oracle_db.connection)
+        USData = self.generate_query1(date_choice)
+        USData4graph = pd.read_sql_query(USData, con = oracle_db.connection)
+        
+        #USData4graph.plot(kind='bar',figsize=(15,5),color='red',
+        #                        title='Top 20 US Cities by Accident Numbers ')
+        # df_US = pd.DataFrame(columns = ['State', 'Accidents'])
+        # itr = 0
+        # for row in USData4graph:            
+        #     Accidents = row[1]
+        #     State = row[2]
+        #     #x = str(State)
+        #     #y = int(Accidents)
+        #     df_US[itr] = [State, Accidents]
+        #     itr +=1
+        # print(df_US)
+        st.write(USData4graph)
+        st.bar_chart(USData4graph['ACCIDENTS'])
+        print(USData4graph)
+        
+        #st.bar_chart(df_graph1)
+
         #print(df_graph)
 
         # Data frame and bar graph
@@ -125,23 +144,23 @@ class Home(HydraHeadApp):
         #the value of df_graph in line 118 - we have a correct df as far as
         #I can tell. Will work again on it tomorrow.
         
-        df_graph = pd.DataFrame({
-            'State': ['Florida', 'Michigan', 'Texas', 'Arizona', 'Nevada', 
-                    'NY', 'Georgia', 'Maryland', 'California', 'New Mexico'],
-            'Accident Totals': [450000, 250000, 105345, 500450, 320032, 
-                                75345, 350450, 320032, 145345, 600450]
-        })
-        chart_data = alt.Chart(df_graph).mark_bar().encode(
-            x = 'State', 
-            y = 'Accident Totals',
-            color = 'Origin:N'
-        ).properties(height = 500, title = "Bar Graph").configure_range(
-            category={'scheme': 'yelloworangered'}
-        )
-        st.altair_chart(chart_data, use_container_width = True)
+        # df_graph = pd.DataFrame({
+        #     'State': ['Florida', 'Michigan', 'Texas', 'Arizona', 'Nevada', 
+        #             'NY', 'Georgia', 'Maryland', 'California', 'New Mexico'],
+        #     'Accident Totals': [450000, 250000, 105345, 500450, 320032, 
+        #                         75345, 350450, 320032, 145345, 600450]
+        # })
+        # chart_data = alt.Chart(df_graph).mark_bar().encode(
+        #     x = 'State', 
+        #     y = 'Accident Totals',
+        #     color = 'Origin:N'
+        # ).properties(height = 500, title = "Bar Graph").configure_range(
+        #     category={'scheme': 'yelloworangered'}
+        # )
+        # st.altair_chart(chart_data, use_container_width = True)
 
-        # preview table of query results
-        st.write(pd.read_sql(self.formatted_query + " FETCH FIRST 20 ROWS ONLY", con = oracle_db.connection))
+        # # preview table of query results
+        # st.write(pd.read_sql(self.formatted_query + " FETCH FIRST 20 ROWS ONLY", con = oracle_db.connection))
         
     
     def generate_query(self, date_choice):
