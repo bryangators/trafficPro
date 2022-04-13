@@ -112,7 +112,19 @@ class Home(HydraHeadApp):
             ],
         ))
 
+        #Creates queries dynamically and stores the query code in USData
+        #USData = self.generate_query1(date_choice)
+        #df_graph = pd.read_sql_query(USData, con = oracle_db.connection)
+        #print(df_graph)
+
         # Data frame and bar graph
+        #ran into some trouble getting the df_graph above to be accepted by 
+        #the chart_data in line 130 - I commented out 124-129 but its not 
+        #accepting as valid input. I tried changing the values of x and y
+        #in lines 133-134 but that did not work either. When I print out 
+        #the value of df_graph in line 118 - we have a correct df as far as
+        #I can tell. Will work again on it tomorrow.
+        
         df_graph = pd.DataFrame({
             'State': ['Florida', 'Michigan', 'Texas', 'Arizona', 'Nevada', 
                     'NY', 'Georgia', 'Maryland', 'California', 'New Mexico'],
@@ -156,6 +168,27 @@ class Home(HydraHeadApp):
         
         return result
     
+    #Bar Chart Data Query Builder
+    def generate_query1(self, date_choice):
+        result = f"""SELECT COUNT(*) AS Accidents, STATE_NAME AS State 
+                     FROM "J.POULOS".ACCIDENT
+                     WHERE
+                     """
+
+        # add date conditions
+        if date_choice == 'Date':
+            result += f""" trunc(start_time) = to_date('{self.day}', 'YYYY-MM-DD') """
+        else:
+            result += f""" EXTRACT(year FROM start_time) >= {self.year[0]}
+                           AND EXTRACT(year FROM start_time) <= {self.year[1]} """
+        
+        # group by STATE, show only top 10
+        result += f"""GROUP BY STATE_NAME 
+                        ORDER BY COUNT(*) DESC 
+                        FETCH FIRST 10 ROWS ONLY"""
+       
+        return result
+
     # helper function to format list of weather conditions chosen
     def generate_weather_list(self):
         result = f""" """
