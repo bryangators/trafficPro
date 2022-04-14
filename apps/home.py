@@ -7,10 +7,296 @@ import pandas as pd
 from PIL import Image
 import pydeck as pdk
 import datetime
+import plotly.graph_objects as go
 import altair as alt
 
 
 class Home(HydraHeadApp):
+
+    def __init(self):
+        self.day = None
+        self.year = None
+        self.weather = None
+        self.time = None
+        
+
+    def run(self):
+        l2 = Image.open('images/logo2.png')
+        st.image(Image.open('images/logo_banner.png'), use_column_width = True)
+
+        """
+        This section is for the elements in the sidebar
+        """
+        with st.sidebar:
+            
+            st.image(l2, width = 250)
+            date_choice = st.radio(
+                "Query by Date or Year Range",
+                ("Date", "Year")
+            )
+            
+            with st.form(key='form1'):
+
+                if (date_choice == 'Date'):
+                    # Date selection by day
+                    st.header('Accidents by Day', anchor = None)
+                    # date selector for queries. Has correct min and max dates
+                    self.day = st.date_input(
+                        "Date:", datetime.datetime(2020, 12, 30), min_value=datetime.datetime(2016, 2, 8), max_value=datetime.datetime(2020, 12, 30)
+                    )
+                else:
+                    # Year slider
+                    st.header('Accidents by Year', anchor = None)
+                    self.year = st.slider(
+                        'Select the range of years',
+                        2016, 2020, 2020
+                    )
+                
+                # Weather options
+                # multiselect weather. passes the condition to the weather function
+                st.header('Weather', anchor = None)
+                self.weather = st.multiselect(
+                    'Select Weather Condition',
+                    ['Rain', 'Snow', 'Partly Cloudy', 'Tornado', 'Clear', 'Cloudy', 'Thunderstorm', 'Hail', 'Windy', 
+                    'Mostly Cloudy', 'Fair', 'Overcast', 'Scattered Clouds', 'Fog', 'Haze']
+                )
+
+                st.header('Temperature', anchor = None)
+                self.temp = st.multiselect(
+                    'Select Temperature',
+                    ['Temp < 00 °F', '00 - 19 °F', '20 - 39 °F', '40 - 59 °F', '60 - 79 °F', 'Temp > 80 °F']
+                )
+
+                # Time selection
+                st.header('Time', anchor = None)
+                self.time = st.multiselect(
+                    'Select Time',
+                    ['12:00 AM - 02:59 AM', '03:00 AM - 05:59 AM',
+                    '06:00 AM - 08:59 AM', '09:00 AM - 11:59 AM',
+                    '12:00 PM - 02:59 PM', '03:00 PM - 05:59 PM',
+                    '06:00 PM - 08:59 PM', '09:00 PM - 11:59 PM']
+                )
+
+                submitted = st.form_submit_button(label='Run Query')
+
+            self.dbstats()
+
+        """
+        This section is for the main page elements
+        """  
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            st.header("United States Accidents by State")
+            if (date_choice == 'Date'):
+                st.caption(f"Total on {self.day}")
+            else:
+                st.caption(f"Total in {self.year}")
+
+            map_query = self.generate_map_query(date_choice)
+            map_df = pd.read_sql(map_query, con = oracle_db.connection)
+
+            fig = go.Figure(data=go.Choropleth(
+                locations=map_df['CODE'], # Spatial coordinates
+                z = map_df['TOTAL'].astype(float), # Data to be color-coded
+                locationmode = 'USA-states', # set of locations match entries in `locations`
+                colorscale = 'Blues',
+                text=map_df['STATE'],
+                colorbar_title = "No. of Accidents",
+            ))
+
+            fig.update_layout(
+                geo = dict(
+                scope='usa',
+                projection=go.layout.geo.Projection(type = 'albers usa'),
+                showlakes=True, # lakes
+                lakecolor='rgb(255, 255, 255)'),
+            )
+            fig.update_layout(height=300, margin={"r":20,"t":0,"l":0,"b":0})
+            st.plotly_chart(fig, use_container_width=True)
+
+            st.text("SQL for Above Query:")
+            st.code(map_query + ";", language='sql')
+
+        with col2:
+            st.header("Top 10 States by Accident Query")
+            if (date_choice == 'Date'):
+                st.caption(f"Total on {self.day}")
+            else:
+                st.caption(f"Total in {self.year}")
+            #Creates queries dynamically and stores the query code in USData
+            USData = self.generate_query1(date_choice)
+            USData4graph = pd.read_sql_query(USData, index_col = "STATE", con = oracle_db.connection)
+            
+            st.bar_chart(USData4graph['ACCIDENTS'])
+            st.text("SQL for Above Query:")
+            st.code(USData + ";", language='sql')
+        
+        
+        
+    
+    def generate_query(self, date_choice):
+        result = f"""SELECT * 
+                     FROM "J.POULOS".ACCIDENT
+                     WHERE
+                     """
+
+        # add date conditions
+        if date_choice == 'Date':
+            result += f"""trunc(start_time) = to_date('{self.day}', 'YYYY-MM-DD')\n"""
+        else:
+            result += f"""EXTRACT(year FROM start_time) = {self.year}\n"""
+        
+        # add weather conditions
+        result += self.generate_weather_list()
+
+        # add temperature conditions
+        result += self.generate_temp_list()
+
+        # add time conditions
+        result += self.generate_time_list()
+        
+        return result
+    
+    #Bar Chart Data Query Builder
+    def generate_query1(self, date_choice):
+        result = f"""SELECT COUNT(*) AS Accidents, STATE_NAME AS State\nFROM "J.POULOS".ACCIDENT\nWHERE """
+        
+        # add date conditions
+        if date_choice == 'Date':
+            result += f"trunc(start_time) = to_date('{self.day}', 'YYYY-MM-DD')\n"
+        else:
+            result += f"EXTRACT(year FROM start_time) = {self.year}\n"
+      
+        # group by STATE, show only top 10
+        result += f"""GROUP BY STATE_NAME\nORDER BY COUNT(*) DESC\nFETCH FIRST 10 ROWS ONLY"""
+       
+        return result
+
+    def generate_map_query(self, date_choice):
+        result = f"""SELECT s.ABBREVIATION AS code, count(a.ID) AS total, s.SNAME AS state\nFROM "J.POULOS".ACCIDENT a, "J.POULOS".STATE s\nWHERE a.STATE_NAME = s.SNAME AND\n"""
+
+        # add date conditions
+        if date_choice == 'Date':
+            result += f"trunc(start_time) = to_date('{self.day}', 'YYYY-MM-DD')\n"
+        else:
+            result += f"EXTRACT(year FROM start_time) = {self.year}\n"
+        
+        # add weather conditions
+        result += self.generate_weather_list()
+
+        # add temperature conditions
+        result += self.generate_temp_list()
+
+        # add time conditions
+        result += self.generate_time_list()
+
+        result += f"GROUP BY s.ABBREVIATION, s.SNAME"
+
+        return result
+
+    # helper function to format list of weather conditions chosen
+    def generate_weather_list(self):
+        result = f""""""
+
+        if self.weather:
+            for i, cond in enumerate(self.weather): 
+                if i == 0:
+                    if len(self.weather) == 1:
+                        result += f"""AND (condition LIKE '%{cond}%'"""
+                    else:
+                        result += f"""AND (condition LIKE '%{cond}%'\n"""
+                elif i != len(self.weather) - 1:
+                    result += f"""     OR condition LIKE '%{cond}%'\n"""
+                else: 
+                    result += f"""     OR condition LIKE '%{cond}%'""" 
+            result += """)\n"""     
+        return result
+
+    # helper function to format list of temp conditions chosen
+    def generate_temp_list(self):
+        
+        result = f""""""
+
+        tempRange = []
+        
+        for i in range(0, len(self.temp)):
+            match self.temp[i]:
+                case "Temp < 00 °F":
+                    tempRange.append((-100, -0.1))
+                case "00 - 19 °F":
+                    tempRange.append((0, 19.9))   
+                case "20 - 39 °F":
+                    tempRange.append((20,39.9))
+                case "40 - 59 °F":
+                    tempRange.append((40, 59.9))
+                case "60 - 79 °F":
+                    tempRange.append((60, 79.9))
+                case "Temp > 80 °F":
+                    tempRange.append((80, 200))
+        
+        if tempRange:
+            tempRange.sort()
+            for i, t in enumerate(tempRange):
+                if i == 0:
+                    if len(tempRange) == 1:
+                        result += f"""AND (temperature BETWEEN {t[0]} AND {t[1]}"""
+                    else:
+                        result += f"""AND (temperature BETWEEN {t[0]} AND {t[1]}\n"""
+                elif i != len(tempRange) - 1:
+                    result += f"""     OR temperature BETWEEN {t[0]} AND {t[1]}\n"""
+                else:
+                    result += f"""     OR temperature BETWEEN {t[0]} AND {t[1]}"""
+            result += f""")\n"""  
+
+             
+        return result
+
+    # helper function to format list of time conditions chosen
+    def generate_time_list(self):
+        result = f""""""
+        timeRange = []
+        
+        # adds the selected time conditions to
+        # the timeRange list.
+        for i in range(0, len(self.time)):
+            match self.time[i]:
+                case "12:00 AM - 02:59 AM":
+                    timeRange.append(("00:00:00", "02:59:59"))
+                case "03:00 AM - 05:59 AM":
+                    timeRange.append(("03:00:00", "05:59:59")) 
+                case "06:00 AM - 08:59 AM":
+                    timeRange.append(("06:00:00", "08:59:59"))
+                case "09:00 AM - 11:59 AM":
+                    timeRange.append(("09:00:00", "11:59:59")) 
+                case "12:00 PM - 02:59 PM":
+                    timeRange.append(("12:00:00", "14:59:59"))              
+                case "03:00 PM - 05:59 PM":
+                    timeRange.append(("15:00:00", "17:59:59"))    
+                case "06:00 PM - 08:59 PM":
+                    timeRange.append(("18:00:00", "20:59:59"))
+                case "09:00 PM - 11:59 PM":
+                    timeRange.append(("21:00:00", "23:59:59"))
+
+        
+
+        if timeRange:
+            timeRange.sort()
+            for i, t in enumerate(timeRange):
+                if i == 0:
+                    if len(timeRange) == 1:
+                        result += f"""AND (to_char(start_time, 'hh24:mi:ss') BETWEEN '{t[0]}' AND '{t[1]}'"""
+                    else:
+                        result += f"""AND (to_char(start_time, 'hh24:mi:ss') BETWEEN '{t[0]}' AND '{t[1]}'\n"""
+                elif i != len(timeRange) - 1:
+                    result += f"""     OR to_char(start_time, 'hh24:mi:ss') BETWEEN '{t[0]}' AND '{t[1]}'\n"""
+                else:
+                    result += f"""     OR to_char(start_time, 'hh24:mi:ss') BETWEEN '{t[0]}' AND '{t[1]}'"""
+
+            result += f""")\n"""
+
+        return result
 
     # button for tuples in the database
     def dbstats(self):
@@ -98,110 +384,3 @@ class Home(HydraHeadApp):
                 str6 + str7 + str8 + str9 + str10 + str11,
                 height = 350
             )
-
-    def run(self):
-        cursor = oracle_db.connection.cursor()
-        l2 = Image.open('images/logo2.png')
-        st.image(Image.open('images/logo_banner.png'), use_column_width = True)
-
-        
-        """
-        This section is for the elements in the sidebar
-        """
-        st.sidebar.image(l2, width = 250)
-
-        # Date selection by day
-        day = 'Accidents by Day'
-        st.sidebar.header(day, anchor = None)
-        
-        calendar = st.sidebar.date_input(
-            "Date:", datetime.date(2019, 4, 1)
-        )
-
-        # Year slider
-        st.sidebar.header('Accidents by Year', anchor = None)
-        year_slider = st.sidebar.slider(
-            'Select the range of years',
-            2016, 2021, (2016, 2017)
-        )
-
-        # Weather options
-        st.sidebar.header('Select Weather Conditions', anchor = None)
-        w_clear = st.sidebar.checkbox('Clear')
-        w_rain = st.sidebar.checkbox('Rain')
-        w_snow = st.sidebar.checkbox('Snow')
-        w_tornado = st.sidebar.checkbox('Tornado')
-
-        # Temperature options
-        st.sidebar.header('Select Temperature', anchor = None)
-        temp1 = st.sidebar.checkbox('00 - 34 °F')
-        temp2 = st.sidebar.checkbox('35 - 69 °F')
-        temp3 = st.sidebar.checkbox('70 - 100 °F')
-
-        # Time selection
-        st.sidebar.header('Select Time', anchor = None)
-        st.sidebar.time_input('Select Time', datetime.time(8, 45))
-
-        self.dbstats()
-
-        """
-        This section is for the main page elements
-        """
-        # Data frame and map
-        df = pd.DataFrame(
-            np.random.randn(1000, 2) / [50, 50] + [37.76, -122.4],
-            columns = ['lat', 'lon']
-        )
-
-        st.pydeck_chart(pdk.Deck(
-            map_style = 'mapbox://styles/mapbox/light-v9',
-            initial_view_state = pdk.ViewState(
-                latitude = 37.0,
-                longitude = -98.0,
-                zoom = 3,
-                pitch = 10,
-            ),
-            layers = [
-                pdk.Layer(
-                    'ScatterplotLayer',
-                    data = df,
-                    get_position = '[lon, lat]',
-                    get_color = '[200, 30, 0, 160]',
-                    get_radius = 75,
-                ),
-            ],
-        ))
-
-        # Data frame and bar graph
-        df_graph = pd.DataFrame({
-            'State': ['Florida', 'Michigan', 'Texas', 'Arizona', 'Nevada', 
-                    'NY', 'Georgia', 'Maryland', 'California', 'New Mexico'],
-            'Accident Totals': [450000, 250000, 105345, 500450, 320032, 
-                                75345, 350450, 320032, 145345, 600450]
-        })
-        chart_data = alt.Chart(df_graph).mark_bar().encode(
-            x = 'State', 
-            y = 'Accident Totals',
-            color = 'Origin:N'
-        ).properties(height = 500, title = "Bar Graph").configure_range(
-            category={'scheme': 'yelloworangered'}
-        )
-        st.altair_chart(chart_data, use_container_width = True)
-
-        # Query for year slider. Outputs 20 rows
-        year_range = f"""SELECT * 
-                         FROM "J.POULOS".Accident 
-                         WHERE ROWNUM < 20 
-                         AND EXTRACT(year FROM start_time) >= {year_slider[0]}
-                         AND EXTRACT(year FROM start_time) <= {year_slider[1]}"""
-        st.write(pd.read_sql(year_range, con = oracle_db.connection))
-
-        # Query for calendar range.
-        # currently not returning what is expected.
-        # Outputs empty table.
-        calendar_day = f"""SELECT *
-                        FROM "J.POULOS".Accident 
-                        WHERE TO_CHAR(TRUNC(start_time), 'YYYY-MON-DD') = TO_CHAR({calendar})
-                        AND ROWNUM < 20"""
-                        
-        st.write(pd.read_sql(calendar_day, con = oracle_db.connection))     
