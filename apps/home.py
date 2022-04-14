@@ -1,4 +1,6 @@
 from itertools import count
+from re import U
+from matplotlib.axis import YAxis
 import streamlit as st
 from hydralit import HydraHeadApp
 from db import db_conn as oracle_db
@@ -103,7 +105,7 @@ class Home(HydraHeadApp):
                 locations=map_df['CODE'], # Spatial coordinates
                 z = map_df['TOTAL'].astype(float), # Data to be color-coded
                 locationmode = 'USA-states', # set of locations match entries in `locations`
-                colorscale = 'Blues',
+                colorscale = 'Oranges',
                 text=map_df['STATE'],
                 colorbar_title = "No. of Accidents",
             ))
@@ -115,7 +117,7 @@ class Home(HydraHeadApp):
                 showlakes=True, # lakes
                 lakecolor='rgb(255, 255, 255)'),
             )
-            map_fig.update_layout(height=300, margin={"r":20,"t":0,"l":0,"b":0})
+            map_fig.update_layout(height=300, margin={"r":20,"t":60,"l":0,"b":0})
             st.plotly_chart(map_fig, use_container_width=True)
 
             st.text("SQL for Above Query:")
@@ -129,12 +131,28 @@ class Home(HydraHeadApp):
                 st.caption(f"Total on {self.day}")
             else:
                 st.caption(f"Total in {self.year}")
+
             #Creates queries dynamically and stores the query code in USData
             USData = self.generate_query1(date_choice)
-            USData4graph = pd.read_sql_query(USData, index_col = "STATE", con = oracle_db.connection)
-            
-            st.bar_chart(USData4graph['ACCIDENTS'])
-            st.text("SQL for Above Query:")
+            top10_df = pd.read_sql_query(USData, con = oracle_db.connection)
+            top10_df.sort_values('ACCIDENTS')
+
+            top10_fig = go.Figure()
+            top10_fig.add_trace(go.Bar(
+                y=top10_df['STATE'],
+                x=top10_df['ACCIDENTS'],
+                orientation='h',
+                 marker=dict(
+                        color='rgba(50, 171, 96, 0.6)',
+                        line=dict(
+                            color='rgba(50, 171, 96, 1.0)',
+                            width=1),
+            )))
+            top10_fig.update_layout(height=300, margin={"r":20,"t":60,"l":0,"b":0})
+            top10_fig.update_layout(barmode='stack', yaxis={'categoryorder':'total ascending'})
+            st.write(top10_fig, use_container_width=True)
+            # st.bar_chart(USData4graph['ACCIDENTS'])
+            # st.text("SQL for Above Query:")
             st.code(USData + ";", language='sql')
 
         
@@ -154,18 +172,18 @@ class Home(HydraHeadApp):
         st.header(f"{state} Funding vs Accidents")
         hist_query = self.generate_funding_query(state)
         hist_df = pd.read_sql(hist_query, con = oracle_db.connection)
-        
+        hist_df.sort_values('YEAR')
         # Create figure with secondary y-axis
         fund_fig = make_subplots(specs=[[{"secondary_y": True}]])
 
         # Add traces
         fund_fig.add_trace(
-            go.Scatter(x=[2016, 2017, 2018, 2019], y=hist_df['FUNDING'], name="Funding"),
+            go.Scatter(x=hist_df['YEAR'], y=hist_df['FUNDING'], name="Funding"),
             secondary_y=False,
         )
 
         fund_fig.add_trace(
-            go.Scatter(x=[2016, 2017, 2018, 2019], y=hist_df['ACCIDENTS'], name="Accidents"),
+            go.Scatter(x=hist_df['YEAR'], y=hist_df['ACCIDENTS'], name="Accidents"),
             secondary_y=True,
         )
 
@@ -187,17 +205,20 @@ class Home(HydraHeadApp):
         st.header(f"{state} Population vs Accidents")
         pop_query = self.generate_pop_query(state)
         pop_df = pd.read_sql(pop_query, con = oracle_db.connection)
+        pop_df.sort_values('YEAR')
         # Create figure with secondary y-axis
         pop_fig = make_subplots(specs=[[{"secondary_y": True}]])
 
+
+
         # Add traces
         pop_fig.add_trace(
-            go.Scatter(x=[2016, 2017, 2018, 2019], y=pop_df['POPULATION'], name="Population"),
+            go.Scatter(x=pop_df['YEAR'], y=pop_df['POPULATION'], name="Population"),
             secondary_y=False,
         )
 
         pop_fig.add_trace(
-            go.Scatter(x=[2016, 2017, 2018, 2019], y=hist_df['ACCIDENTS'], name="Accidents"),
+            go.Scatter(x=pop_df['YEAR'], y=hist_df['ACCIDENTS'], name="Accidents"),
             secondary_y=True,
         )
 
