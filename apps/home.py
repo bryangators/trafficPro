@@ -8,6 +8,8 @@ from PIL import Image
 import pydeck as pdk
 import datetime
 import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
 import altair as alt
 
 
@@ -97,7 +99,7 @@ class Home(HydraHeadApp):
             map_query = self.generate_map_query(date_choice)
             map_df = pd.read_sql(map_query, con = oracle_db.connection)
 
-            fig = go.Figure(data=go.Choropleth(
+            map_fig = go.Figure(data=go.Choropleth(
                 locations=map_df['CODE'], # Spatial coordinates
                 z = map_df['TOTAL'].astype(float), # Data to be color-coded
                 locationmode = 'USA-states', # set of locations match entries in `locations`
@@ -106,18 +108,20 @@ class Home(HydraHeadApp):
                 colorbar_title = "No. of Accidents",
             ))
 
-            fig.update_layout(
+            map_fig.update_layout(
                 geo = dict(
                 scope='usa',
                 projection=go.layout.geo.Projection(type = 'albers usa'),
                 showlakes=True, # lakes
                 lakecolor='rgb(255, 255, 255)'),
             )
-            fig.update_layout(height=300, margin={"r":20,"t":0,"l":0,"b":0})
-            st.plotly_chart(fig, use_container_width=True)
+            map_fig.update_layout(height=300, margin={"r":20,"t":0,"l":0,"b":0})
+            st.plotly_chart(map_fig, use_container_width=True)
 
             st.text("SQL for Above Query:")
             st.code(map_query + ";", language='sql')
+
+            
 
         with col2:
             st.header("Top 10 States by Accident Query")
@@ -132,9 +136,85 @@ class Home(HydraHeadApp):
             st.bar_chart(USData4graph['ACCIDENTS'])
             st.text("SQL for Above Query:")
             st.code(USData + ";", language='sql')
+
         
         
+        # query to get list of states for select box
+        state_query = """select sname as state
+                        FROM "J.POULOS".STATE
+                        WHERE sname != 'Alaska' and sname != 'Hawaii'
+                        ORDER BY sname ASC"""
+        state_list = pd.read_sql(state_query, con = oracle_db.connection)
+        print("here")
+        state = st.selectbox(
+                'Choose a State',
+                state_list['STATE'])
+
+        # FUNDING GRAPH
+        st.header(f"{state} Funding vs Accidents")
+        hist_query = self.generate_funding_query(state)
+        hist_df = pd.read_sql(hist_query, con = oracle_db.connection)
         
+        # Create figure with secondary y-axis
+        fund_fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+        # Add traces
+        fund_fig.add_trace(
+            go.Scatter(x=[2016, 2017, 2018, 2019], y=hist_df['FUNDING'], name="Funding"),
+            secondary_y=False,
+        )
+
+        fund_fig.add_trace(
+            go.Scatter(x=[2016, 2017, 2018, 2019], y=hist_df['ACCIDENTS'], name="Accidents"),
+            secondary_y=True,
+        )
+
+        # Add figure title
+        fund_fig.update_layout(
+            title_text=f"Accidents vs Funding Trends for {state}"
+        )
+
+        # Set x-axis title
+        fund_fig.update_xaxes(title_text="Year", dtick=1)
+
+        # Set y-axes titles
+        fund_fig.update_yaxes(title_text="Total Funding - US Dollars", secondary_y=False)
+        fund_fig.update_yaxes(title_text="Total Accidents", secondary_y=True)
+
+        st.plotly_chart(fund_fig, use_container_width=True)
+
+        #POPULATION GRAPH
+        st.header(f"{state} Population vs Accidents")
+        pop_query = self.generate_pop_query(state)
+        pop_df = pd.read_sql(pop_query, con = oracle_db.connection)
+        # Create figure with secondary y-axis
+        pop_fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+        # Add traces
+        pop_fig.add_trace(
+            go.Scatter(x=[2016, 2017, 2018, 2019], y=pop_df['POPULATION'], name="Population"),
+            secondary_y=False,
+        )
+
+        pop_fig.add_trace(
+            go.Scatter(x=[2016, 2017, 2018, 2019], y=hist_df['ACCIDENTS'], name="Accidents"),
+            secondary_y=True,
+        )
+
+        # Add pop_figure title
+        pop_fig.update_layout(
+            title_text=f"Accidents vs Population Trends for {state}"
+        )
+
+        # Set x-axis title
+        pop_fig.update_xaxes(title_text="Year", dtick=1)
+
+        # Set y-axes titles
+        pop_fig.update_yaxes(title_text="Total Population", secondary_y=False)
+        pop_fig.update_yaxes(title_text="Total Accidents", secondary_y=True)
+
+        st.plotly_chart(pop_fig, use_container_width=True)
+            
     
     def generate_query(self, date_choice):
         result = f"""SELECT * 
@@ -168,6 +248,15 @@ class Home(HydraHeadApp):
             result += f"trunc(start_time) = to_date('{self.day}', 'YYYY-MM-DD')\n"
         else:
             result += f"EXTRACT(year FROM start_time) = {self.year}\n"
+        
+        # add weather conditions
+        result += self.generate_weather_list()
+
+        # add temperature conditions
+        result += self.generate_temp_list()
+
+        # add time conditions
+        result += self.generate_time_list()
       
         # group by STATE, show only top 10
         result += f"""GROUP BY STATE_NAME\nORDER BY COUNT(*) DESC\nFETCH FIRST 10 ROWS ONLY"""
@@ -193,6 +282,32 @@ class Home(HydraHeadApp):
         result += self.generate_time_list()
 
         result += f"GROUP BY s.ABBREVIATION, s.SNAME"
+
+        return result
+    
+    def generate_funding_query(self, state):
+        result = f"""with totals (state_name, accidents, year) as (
+                    SELECT state_name, COUNT(ID) as Accidents, EXTRACT(year FROM start_time) as Year
+                    FROM "J.POULOS".Accident
+                    GROUP BY state_name, EXTRACT(year FROM start_time)
+                    HAVING state_name = '{state}' AND EXTRACT(year FROM start_time) != 2020)
+
+                    SELECT t.state_name as state, t.year as year, t.accidents as accidents, f.funding as funding
+                    FROM totals t, "J.POULOS".STATE_FUND f
+                    WHERE t.year = f.year and t.state_name = f.sname"""
+
+        return result
+    
+    def generate_pop_query(self, state):
+        result = f"""with totals (state_name, accidents, year) as (
+                    SELECT state_name, COUNT(ID) as Accidents, EXTRACT(year FROM start_time) as Year
+                    FROM "J.POULOS".Accident
+                    GROUP BY state_name, EXTRACT(year FROM start_time)
+                    HAVING state_name = '{state}')
+
+                    SELECT t.state_name as state, t.year as year, t.accidents as accidents, p.population
+                    FROM totals t, "J.POULOS".STATE_POP p
+                    WHERE t.year = p.year and t.state_name = p.sname"""
 
         return result
 
