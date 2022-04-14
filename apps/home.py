@@ -168,7 +168,7 @@ class Home(HydraHeadApp):
             result += f"trunc(start_time) = to_date('{self.day}', 'YYYY-MM-DD')\n"
         else:
             result += f"EXTRACT(year FROM start_time) = {self.year}\n"
-        
+      
         # group by STATE, show only top 10
         result += f"""GROUP BY STATE_NAME\nORDER BY COUNT(*) DESC\nFETCH FIRST 10 ROWS ONLY"""
        
