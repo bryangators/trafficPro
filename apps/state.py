@@ -526,19 +526,19 @@ class State(HydraHeadApp):
             match temp_condition[i]:
                 case "Temp < 00 °F":
                     tempRange.append(-100)
-                    tempRange.append(-1)
-                case "00 - 19 °F":
+                    tempRange.append(-0.1)
+                case "00 - 19.9 °F":
                     tempRange.append(0)
-                    tempRange.append(19)    
-                case "20 - 39 °F":
+                    tempRange.append(19.9)    
+                case "20 - 39.9 °F":
                     tempRange.append(20)
-                    tempRange.append(39)
-                case "40 - 59 °F":
+                    tempRange.append(39.9)
+                case "40 - 59.9 °F":
                     tempRange.append(40)
-                    tempRange.append(59) 
-                case "60 - 79 °F":
+                    tempRange.append(59.9) 
+                case "60 - 79.9 °F":
                     tempRange.append(60)
-                    tempRange.append(79)
+                    tempRange.append(79.9)
                 case "Temp > 80 °F":
                     tempRange.append(80) 
                     tempRange.append(200)   
