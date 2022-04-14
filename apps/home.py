@@ -127,7 +127,7 @@ class Home(HydraHeadApp):
                 st.caption(f"Total in {self.year}")
             #Creates queries dynamically and stores the query code in USData
             USData = self.generate_query1(date_choice)
-            USData4graph = pd.read_sql_query(USData, con = oracle_db.connection)
+            USData4graph = pd.read_sql_query(USData, index_col = "STATE", con = oracle_db.connection)
             
             st.bar_chart(USData4graph['ACCIDENTS'])
             st.text("SQL for Above Query:")
