@@ -6,7 +6,7 @@ from .db_credentials import username, password
 try:
     if sys.platform.startswith("darwin"):
         lib_dir = os.path.join(os.environ.get("HOME"), "Downloads",
-                               "instantclient_21_3")
+                               "instantclient_19_8")
         cx_Oracle.init_oracle_client(lib_dir=lib_dir)
     elif sys.platform.startswith("win32"):
         lib_dir=r"C:\oracle\instantclient_21_3"
