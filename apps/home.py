@@ -7,13 +7,13 @@ import pandas as pd
 from PIL import Image
 import pydeck as pdk
 import datetime
+import plotly.graph_objects as go
 import altair as alt
 
 
 class Home(HydraHeadApp):
 
     def __init(self):
-        self.formatted_query = f""""""
         self.day = None
         self.year = None
         self.weather = None
@@ -49,7 +49,7 @@ class Home(HydraHeadApp):
                     st.header('Accidents by Year', anchor = None)
                     self.year = st.slider(
                         'Select the range of years',
-                        2016, 2020, (2017, 2019)
+                        2016, 2020, 2020
                     )
                 
                 # Weather options
@@ -83,84 +83,57 @@ class Home(HydraHeadApp):
 
         """
         This section is for the main page elements
-        """
-        self.formatted_query = self.generate_query(date_choice)
-        print(self.formatted_query)
+        """  
+        col1, col2 = st.columns(2)
 
-        # Data frame and map
-        df = pd.DataFrame(
-            np.random.randn(1000, 2) / [50, 50] + [37.76, -122.4],
-            columns = ['lat', 'lon']
-        )
+        with col1:
 
-        st.pydeck_chart(pdk.Deck(
-            map_style = 'mapbox://styles/mapbox/light-v9',
-            initial_view_state = pdk.ViewState(
-                latitude = 37.0,
-                longitude = -98.0,
-                zoom = 3,
-                pitch = 10,
-            ),
-            layers = [
-                pdk.Layer(
-                    'ScatterplotLayer',
-                    data = df,
-                    get_position = '[lon, lat]',
-                    get_color = '[200, 30, 0, 160]',
-                    get_radius = 75,
-                ),
-            ],
-        ))
+            st.header("United States Accidents by State")
+            if (date_choice == 'Date'):
+                st.caption(f"Total on {self.day}")
+            else:
+                st.caption(f"Total in {self.year}")
 
-        #Creates queries dynamically and stores the query code in USData
-        USData = self.generate_query1(date_choice)
-        USData4graph = pd.read_sql_query(USData, con = oracle_db.connection)
+            map_query = self.generate_map_query(date_choice)
+            map_df = pd.read_sql(map_query, con = oracle_db.connection)
+
+            fig = go.Figure(data=go.Choropleth(
+                locations=map_df['CODE'], # Spatial coordinates
+                z = map_df['TOTAL'].astype(float), # Data to be color-coded
+                locationmode = 'USA-states', # set of locations match entries in `locations`
+                colorscale = 'Blues',
+                text=map_df['STATE'],
+                colorbar_title = "No. of Accidents",
+            ))
+
+            fig.update_layout(
+                geo = dict(
+                scope='usa',
+                projection=go.layout.geo.Projection(type = 'albers usa'),
+                showlakes=True, # lakes
+                lakecolor='rgb(255, 255, 255)'),
+            )
+            fig.update_layout(height=300, margin={"r":20,"t":0,"l":0,"b":0})
+            st.plotly_chart(fig, use_container_width=True)
+
+            st.text("SQL for Above Query:")
+            st.code(map_query + ";", language='sql')
+
+        with col2:
+            st.header("Top 10 States by Accident Query")
+            if (date_choice == 'Date'):
+                st.caption(f"Total on {self.day}")
+            else:
+                st.caption(f"Total in {self.year}")
+            #Creates queries dynamically and stores the query code in USData
+            USData = self.generate_query1(date_choice)
+            USData4graph = pd.read_sql_query(USData, con = oracle_db.connection)
+            
+            st.bar_chart(USData4graph['ACCIDENTS'])
+            st.text("SQL for Above Query:")
+            st.code(USData + ";", language='sql')
         
-        #USData4graph.plot(kind='bar',figsize=(15,5),color='red',
-        #                        title='Top 20 US Cities by Accident Numbers ')
-        # df_US = pd.DataFrame(columns = ['State', 'Accidents'])
-        # itr = 0
-        # for row in USData4graph:            
-        #     Accidents = row[1]
-        #     State = row[2]
-        #     #x = str(State)
-        #     #y = int(Accidents)
-        #     df_US[itr] = [State, Accidents]
-        #     itr +=1
-        # print(df_US)
-        st.write(USData4graph)
-        st.bar_chart(USData4graph['ACCIDENTS'])
-        print(USData4graph)
         
-        #st.bar_chart(df_graph1)
-
-        #print(df_graph)
-
-        # Data frame and bar graph
-        #ran into some trouble getting the df_graph above to be accepted by 
-        #the chart_data in line 130 - I commented out 124-129 but its not 
-        #accepting as valid input. I tried changing the values of x and y
-        #in lines 133-134 but that did not work either. When I print out 
-        #the value of df_graph in line 118 - we have a correct df as far as
-        #I can tell. Will work again on it tomorrow.
-        
-        # df_graph = pd.DataFrame({
-        #     'State': ['Florida', 'Michigan', 'Texas', 'Arizona', 'Nevada', 
-        #             'NY', 'Georgia', 'Maryland', 'California', 'New Mexico'],
-        #     'Accident Totals': [450000, 250000, 105345, 500450, 320032, 
-        #                         75345, 350450, 320032, 145345, 600450]
-        # })
-        # chart_data = alt.Chart(df_graph).mark_bar().encode(
-        #     x = 'State', 
-        #     y = 'Accident Totals',
-        #     color = 'Origin:N'
-        # ).properties(height = 500, title = "Bar Graph").configure_range(
-        #     category={'scheme': 'yelloworangered'}
-        # )
-        # st.altair_chart(chart_data, use_container_width = True)
-
-        # # preview table of query results
-        # st.write(pd.read_sql(self.formatted_query + " FETCH FIRST 20 ROWS ONLY", con = oracle_db.connection))
         
     
     def generate_query(self, date_choice):
@@ -171,10 +144,9 @@ class Home(HydraHeadApp):
 
         # add date conditions
         if date_choice == 'Date':
-            result += f""" trunc(start_time) = to_date('{self.day}', 'YYYY-MM-DD') """
+            result += f"""trunc(start_time) = to_date('{self.day}', 'YYYY-MM-DD')\n"""
         else:
-            result += f""" EXTRACT(year FROM start_time) >= {self.year[0]}
-                           AND EXTRACT(year FROM start_time) <= {self.year[1]} """
+            result += f"""EXTRACT(year FROM start_time) = {self.year}\n"""
         
         # add weather conditions
         result += self.generate_weather_list()
@@ -189,44 +161,63 @@ class Home(HydraHeadApp):
     
     #Bar Chart Data Query Builder
     def generate_query1(self, date_choice):
-        result = f"""SELECT COUNT(*) AS Accidents, STATE_NAME AS State 
-                     FROM "J.POULOS".ACCIDENT
-                     WHERE
-                     """
+        result = f"""SELECT COUNT(*) AS Accidents, STATE_NAME AS State\nFROM "J.POULOS".ACCIDENT\nWHERE """
+        
+        # add date conditions
+        if date_choice == 'Date':
+            result += f"trunc(start_time) = to_date('{self.day}', 'YYYY-MM-DD')\n"
+        else:
+            result += f"EXTRACT(year FROM start_time) = {self.year}\n"
+        
+        # group by STATE, show only top 10
+        result += f"""GROUP BY STATE_NAME\nORDER BY COUNT(*) DESC\nFETCH FIRST 10 ROWS ONLY"""
+       
+        return result
+
+    def generate_map_query(self, date_choice):
+        result = f"""SELECT s.ABBREVIATION AS code, count(a.ID) AS total, s.SNAME AS state\nFROM "J.POULOS".ACCIDENT a, "J.POULOS".STATE s\nWHERE a.STATE_NAME = s.SNAME AND\n"""
 
         # add date conditions
         if date_choice == 'Date':
-            result += f""" trunc(start_time) = to_date('{self.day}', 'YYYY-MM-DD') """
+            result += f"trunc(start_time) = to_date('{self.day}', 'YYYY-MM-DD')\n"
         else:
-            result += f""" EXTRACT(year FROM start_time) >= {self.year[0]}
-                           AND EXTRACT(year FROM start_time) <= {self.year[1]} """
+            result += f"EXTRACT(year FROM start_time) = {self.year}\n"
         
-        # group by STATE, show only top 10
-        result += f"""GROUP BY STATE_NAME 
-                        ORDER BY COUNT(*) DESC 
-                        FETCH FIRST 10 ROWS ONLY"""
-       
+        # add weather conditions
+        result += self.generate_weather_list()
+
+        # add temperature conditions
+        result += self.generate_temp_list()
+
+        # add time conditions
+        result += self.generate_time_list()
+
+        result += f"GROUP BY s.ABBREVIATION, s.SNAME"
+
         return result
 
     # helper function to format list of weather conditions chosen
     def generate_weather_list(self):
-        result = f""" """
+        result = f""""""
 
         if self.weather:
-            first = True
-            for cond in self.weather: 
-                if first:
-                    result += f""" AND (condition LIKE '%{cond}%' """
-                    first = False
+            for i, cond in enumerate(self.weather): 
+                if i == 0:
+                    if len(self.weather) == 1:
+                        result += f"""AND (condition LIKE '%{cond}%'"""
+                    else:
+                        result += f"""AND (condition LIKE '%{cond}%'\n"""
+                elif i != len(self.weather) - 1:
+                    result += f"""     OR condition LIKE '%{cond}%'\n"""
                 else: 
-                    result += f""" OR condition LIKE '%{cond}%' """ 
-            result += """) """     
+                    result += f"""     OR condition LIKE '%{cond}%'""" 
+            result += """)\n"""     
         return result
 
     # helper function to format list of temp conditions chosen
     def generate_temp_list(self):
         
-        result = f""" """
+        result = f""""""
 
         tempRange = []
         
@@ -247,19 +238,24 @@ class Home(HydraHeadApp):
         
         if tempRange:
             tempRange.sort()
-            first = True
-            for t in tempRange:
-                if first:
-                    result += f""" AND (temperature BETWEEN {t[0]} AND {t[1]} """
-                    first = False
+            for i, t in enumerate(tempRange):
+                if i == 0:
+                    if len(tempRange) == 1:
+                        result += f"""AND (temperature BETWEEN {t[0]} AND {t[1]}"""
+                    else:
+                        result += f"""AND (temperature BETWEEN {t[0]} AND {t[1]}\n"""
+                elif i != len(tempRange) - 1:
+                    result += f"""     OR temperature BETWEEN {t[0]} AND {t[1]}\n"""
                 else:
-                    result += f""" OR temperature BETWEEN {t[0]} AND {t[1]} """
-            result += f""") """       
+                    result += f"""     OR temperature BETWEEN {t[0]} AND {t[1]}"""
+            result += f""")\n"""  
+
+             
         return result
 
     # helper function to format list of time conditions chosen
     def generate_time_list(self):
-        result = f""" """
+        result = f""""""
         timeRange = []
         
         # adds the selected time conditions to
@@ -287,14 +283,18 @@ class Home(HydraHeadApp):
 
         if timeRange:
             timeRange.sort()
-            first = True
-            for t in timeRange:
-                if first:
-                    result += f""" AND (to_char(start_time, 'hh24:mi:ss') BETWEEN '{t[0]}' AND '{t[1]}' """
-                    first = False
+            for i, t in enumerate(timeRange):
+                if i == 0:
+                    if len(timeRange) == 1:
+                        result += f"""AND (to_char(start_time, 'hh24:mi:ss') BETWEEN '{t[0]}' AND '{t[1]}'"""
+                    else:
+                        result += f"""AND (to_char(start_time, 'hh24:mi:ss') BETWEEN '{t[0]}' AND '{t[1]}'\n"""
+                elif i != len(timeRange) - 1:
+                    result += f"""     OR to_char(start_time, 'hh24:mi:ss') BETWEEN '{t[0]}' AND '{t[1]}'\n"""
                 else:
-                    result += f""" OR to_char(start_time, 'hh24:mi:ss') BETWEEN '{t[0]}' AND '{t[1]}' """
-            result += f""") """
+                    result += f"""     OR to_char(start_time, 'hh24:mi:ss') BETWEEN '{t[0]}' AND '{t[1]}'"""
+
+            result += f""")\n"""
 
         return result
 
