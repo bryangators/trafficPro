@@ -25,8 +25,7 @@ class State(HydraHeadApp):
         self.temperature = ""
         self.location1 = ""
         self.location2 = ""
-        self.state_selection = True
-        self.date_selection = False
+        self.state_selection = False
         self.time_query = pd.DataFrame()
         self.wthr_query = pd.DataFrame()
         self.temp_query = pd.DataFrame()
@@ -237,9 +236,9 @@ class State(HydraHeadApp):
                 self.longitude = -107.290283   
         
     def load_graph(self, location1, location2):
-        # this is temporary. Put here to make sure it doesn't break when
+        # this is temporary. Put here to make sure it doesn't break
         # when location passed in is a city. Fix later.
-        if self.state_selection == True and self.date_selection == False:
+        if self.state_selection == True:
             
             st.header("State Funding")
             year_where = "WHERE EXTRACT(year FROM start_time) IN ("
@@ -327,16 +326,7 @@ class State(HydraHeadApp):
             )
             
             with st.form(key = 'form1'):
-                if (date_choice == 'Date'):
-                    # Date selection by day
-                    st.header('Accidents by Day', anchor = None)
-                   
-                    # date selector for queries. Has correct min and max dates
-                    self.day = st.date_input(
-                        "Date:", datetime.datetime(2020, 12, 30), min_value=datetime.datetime(2016, 2, 8), max_value=datetime.datetime(2020, 12, 30)
-                    )
-                else:
-                    # Year slider
+                if (date_choice == "Year" or date_choice == "Date"):
                     st.header('Accidents by Year', anchor = None)
                     year_slider = st.slider(
                         'Select the range of years',
