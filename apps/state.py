@@ -11,6 +11,8 @@ import altair as alt
 import pydeck as pdk
 from PIL import Image
 import matplotlib.pyplot as plt
+import warnings
+warnings.filterwarnings("ignore")
 plt.style.use('default')
 
 
@@ -26,6 +28,10 @@ class State(HydraHeadApp):
         self.location1 = ""
         self.location2 = ""
         self.state_selection = False
+        self.query_choice = "query"
+        self.city_selection = False
+        self.locations = []
+        self.compare_amount = 0
         self.time_query = pd.DataFrame()
         self.wthr_query = pd.DataFrame()
         self.temp_query = pd.DataFrame()
@@ -238,53 +244,178 @@ class State(HydraHeadApp):
     def load_graph(self, location1, location2):
         # this is temporary. Put here to make sure it doesn't break
         # when location passed in is a city. Fix later.
-        if self.state_selection == True:
-            
+
+        if self.state_selection == True and self.query_choice == 'Funding':
+
             st.header("State Funding")
             year_where = "WHERE EXTRACT(year FROM start_time) IN ("
-            loc1 = "\'" + location1 + "\'"
-            loc2 = "\'" + location2 + "\'"
-            
-            # builds string for year query
+            print("Does this print?, under load_graph")
+            print(self.compare_amount, type(self.compare_amount))
             value = self.years[0]
             while value != self.years[1]:
                 year_where += str(value) + ", "
                 value += 1
             year_where += str(value) + ")"
 
+            loc1 = ""
+            loc2 = ""
+            loc3 = ""
+            loc4 = ""
+            loc5 = ""
+            query1 = ""
+            query2 = ""
+            query3 = ""
+            # df_oracle2 = pd.DataFrame()
+            # df_oracle3 = pd.Dataframe()
+            # st.header("State Funding")
+            # year_where = "WHERE EXTRACT(year FROM start_time) IN ("
+
+            # loc1 = "\'" + location1 + "\'"
+            # loc2 = "\'" + location2 + "\'"
+
+            # if self.compare_amount == '1':
+
+            print(self.locations)
+            loc1 = "\'" + self.locations[0] + "\'"
+            #print("is this working?")
             query1 = f"""WITH cte_funding AS(
-                    SELECT sname AS state_name, year, funding
-                    FROM "J.POULOS".state_fund),
+                               SELECT sname AS state_name, year, funding
+                               FROM "J.POULOS".state_fund),
 
-                    cte_accidents AS (
-                    SELECT COUNT(id) AS accidents, EXTRACT(year FROM start_time) AS year, state_name
-                    FROM "J.POULOS".accident
-                    {year_where}
-                    GROUP BY state_name, EXTRACT(year FROM start_time))
+                               cte_accidents AS (
+                               SELECT COUNT(id) AS accidents, EXTRACT(year FROM start_time) AS year, state_name
+                               FROM "J.POULOS".accident
+                               {year_where}
+                               GROUP BY state_name, EXTRACT(year FROM start_time))
 
-                    SELECT * FROM cte_funding NATURAL JOIN cte_accidents
-                    WHERE state_name IN ({loc1})
-                    ORDER BY year"""
-
-            query2 = f"""WITH cte_funding AS(
-                    SELECT sname AS state_name, year, funding
-                    FROM "J.POULOS".state_fund),
-
-                    cte_accidents AS (
-                    SELECT COUNT(id) AS accidents, EXTRACT(year FROM start_time) AS year, state_name
-                    FROM "J.POULOS".accident
-                    {year_where}
-                    GROUP BY state_name, EXTRACT(year FROM start_time))
-
-                    SELECT * FROM cte_funding NATURAL JOIN cte_accidents
-                    WHERE state_name IN ({loc2})
-                    ORDER BY year"""
-
+                               SELECT * FROM cte_funding NATURAL JOIN cte_accidents
+                               WHERE state_name IN ({loc1})
+                               ORDER BY year"""
             df_oracle1 = pd.read_sql(query1, con=oracle_db.connection)
-            df_oracle2 = pd.read_sql(query2, con=oracle_db.connection)
-            
+            print(df_oracle1)
+            #print("under checking self.compare_amount == 1")
+
+            if self.compare_amount >= '2':
+                #loc1 = "\'" + self.locations[0] + "\'"
+                loc2 = "\'" + self.locations[1] + "\'"
+                query2 = f"""WITH cte_funding AS(
+                                                   SELECT sname AS state_name, year, funding
+                                                   FROM "J.POULOS".state_fund),
+
+                                                   cte_accidents AS (
+                                                   SELECT COUNT(id) AS accidents, EXTRACT(year FROM start_time) AS year, state_name
+                                                   FROM "J.POULOS".accident
+                                                   {year_where}
+                                                   GROUP BY state_name, EXTRACT(year FROM start_time))
+
+                                                   SELECT * FROM cte_funding NATURAL JOIN cte_accidents
+                                                   WHERE state_name IN ({loc2})
+                                                   ORDER BY year"""
+                df_oracle2 = pd.read_sql(query2, con=oracle_db.connection)
+                print(df_oracle2)
+
+
+            if self.compare_amount >= '3':
+                # loc1 = "\'" + self.locations[0] + "\'"
+
+                # loc1 = "\'" + self.locations[0] + "\'"
+                # loc2 = "\'" + self.locations[1] + "\'"
+                loc3 = "\'" + self.locations[2] + "\'"
+                query3 = f"""WITH cte_funding AS(
+                                                   SELECT sname AS state_name, year, funding
+                                                   FROM "J.POULOS".state_fund),
+
+                                                   cte_accidents AS (
+                                                   SELECT COUNT(id) AS accidents, EXTRACT(year FROM start_time) AS year, state_name
+                                                   FROM "J.POULOS".accident
+                                                   {year_where}
+                                                   GROUP BY state_name, EXTRACT(year FROM start_time))
+
+                                                   SELECT * FROM cte_funding NATURAL JOIN cte_accidents
+                                                   WHERE state_name IN ({loc3})
+                                                   ORDER BY year"""
+
+                df_oracle3 = pd.read_sql(query3, con=oracle_db.connection)
+                #print(self.locations)
+                print(df_oracle3)
+            if self.compare_amount >= '4':
+                loc4 = "\'" + self.locations[3] + "\'"
+                query4 = f"""WITH cte_funding AS(
+                                                                   SELECT sname AS state_name, year, funding
+                                                                   FROM "J.POULOS".state_fund),
+
+                                                                   cte_accidents AS (
+                                                                   SELECT COUNT(id) AS accidents, EXTRACT(year FROM start_time) AS year, state_name
+                                                                   FROM "J.POULOS".accident
+                                                                   {year_where}
+                                                                   GROUP BY state_name, EXTRACT(year FROM start_time))
+
+                                                                   SELECT * FROM cte_funding NATURAL JOIN cte_accidents
+                                                                   WHERE state_name IN ({loc4})
+                                                                   ORDER BY year"""
+
+                df_oracle4 = pd.read_sql(query4, con=oracle_db.connection)
+                print(df_oracle4)
+
+                if self.compare_amount >= '5':
+                    loc5 = "\'" + self.locations[4] + "\'"
+                    query5 = f"""WITH cte_funding AS(
+                                                                       SELECT sname AS state_name, year, funding
+                                                                       FROM "J.POULOS".state_fund),
+
+                                                                       cte_accidents AS (
+                                                                       SELECT COUNT(id) AS accidents, EXTRACT(year FROM start_time) AS year, state_name
+                                                                       FROM "J.POULOS".accident
+                                                                       {year_where}
+                                                                       GROUP BY state_name, EXTRACT(year FROM start_time))
+
+                                                                       SELECT * FROM cte_funding NATURAL JOIN cte_accidents
+                                                                       WHERE state_name IN ({loc5})
+                                                                       ORDER BY year"""
+
+                    df_oracle5 = pd.read_sql(query5, con=oracle_db.connection)
+                    print(df_oracle5)
+
+            # builds string for year query
+            # value = self.years[0]
+            # while value != self.years[1]:
+            #     year_where += str(value) + ", "
+            #     value += 1
+            # year_where += str(value) + ")"
+            #
+            # query1 = f"""WITH cte_funding AS(
+            #         SELECT sname AS state_name, year, funding
+            #         FROM "J.POULOS".state_fund),
+            #
+            #         cte_accidents AS (
+            #         SELECT COUNT(id) AS accidents, EXTRACT(year FROM start_time) AS year, state_name
+            #         FROM "J.POULOS".accident
+            #         {year_where}
+            #         GROUP BY state_name, EXTRACT(year FROM start_time))
+            #
+            #         SELECT * FROM cte_funding NATURAL JOIN cte_accidents
+            #         WHERE state_name IN ({loc1})
+            #         ORDER BY year"""
+            #
+            # query2 = f"""WITH cte_funding AS(
+            #         SELECT sname AS state_name, year, funding
+            #         FROM "J.POULOS".state_fund),
+            #
+            #         cte_accidents AS (
+            #         SELECT COUNT(id) AS accidents, EXTRACT(year FROM start_time) AS year, state_name
+            #         FROM "J.POULOS".accident
+            #         {year_where}
+            #         GROUP BY state_name, EXTRACT(year FROM start_time))
+            #
+            #         SELECT * FROM cte_funding NATURAL JOIN cte_accidents
+            #         WHERE state_name IN ({loc2})
+            #         ORDER BY year"""
+
+            # df_oracle1 = pd.read_sql(query1, con=oracle_db.connection)
+            # df_oracle2 = pd.read_sql(query2, con=oracle_db.connection)
+            print("right above subplots")
             fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize = (5, 3))
-        
+
             ax1.set_title('Funding')
             ax1.set_ylabel('Dollar Amount')
         
@@ -292,12 +423,42 @@ class State(HydraHeadApp):
             ax2.set_xlabel('Year', fontsize=12)
             ax2.set_ylabel('Accidents')
             
-            ax1.plot(df_oracle1['YEAR'], df_oracle1['FUNDING'])
-            ax2.plot(df_oracle1['YEAR'], df_oracle1['ACCIDENTS'])
-        
-            for frame in [df_oracle1, df_oracle2]:
-                ax1.plot(frame['YEAR'], frame['FUNDING'], label=frame['STATE_NAME'].loc[0])
-                ax2.plot(frame['YEAR'], frame['ACCIDENTS'], label=frame['STATE_NAME'].loc[0])
+            # ax1.plot(df_oracle1['YEAR'], df_oracle1['FUNDING'])
+            # ax2.plot(df_oracle1['YEAR'], df_oracle1['ACCIDENTS'])
+
+            if self.compare_amount == '1':
+
+                for frame in [df_oracle1]:
+                    ax1.plot(frame['YEAR'], frame['FUNDING'], label=frame['STATE_NAME'].loc[0])
+                    ax2.plot(frame['YEAR'], frame['ACCIDENTS'], label=frame['STATE_NAME'].loc[0])
+
+            elif self.compare_amount == '2':
+                print("compare self.compare_amount == 2")
+                for frame in [df_oracle1, df_oracle2]:
+                    print('seems like theres an error here')
+                    ax1.plot(frame['YEAR'], frame['FUNDING'], label=frame['STATE_NAME'].loc[0])
+                    ax2.plot(frame['YEAR'], frame['ACCIDENTS'], label=frame['STATE_NAME'].loc[0])
+                    print("is there an error here?")
+            elif self.compare_amount == '3':
+                print("self.compare_amount == 4")
+                for frame in [df_oracle1, df_oracle2, df_oracle3]:
+                    ax1.plot(frame['YEAR'], frame['FUNDING'], label=frame['STATE_NAME'].loc[0])
+                    ax2.plot(frame['YEAR'], frame['ACCIDENTS'], label=frame['STATE_NAME'].loc[0])
+
+            elif self.compare_amount == '4':
+                #print('Does this print under self.compare_amount == 4')
+                for frame in [df_oracle1, df_oracle2, df_oracle3, df_oracle4]:
+                    ax1.plot(frame['YEAR'], frame['FUNDING'], label=frame['STATE_NAME'].loc[0])
+                    ax2.plot(frame['YEAR'], frame['ACCIDENTS'], label=frame['STATE_NAME'].loc[0])
+
+            elif self.compare_amount == '5':
+                # print('Does this print under self.compare_amount == 4')
+                for frame in [df_oracle1, df_oracle2, df_oracle3, df_oracle4, df_oracle5]:
+                    ax1.plot(frame['YEAR'], frame['FUNDING'], label=frame['STATE_NAME'].loc[0])
+                    ax2.plot(frame['YEAR'], frame['ACCIDENTS'], label=frame['STATE_NAME'].loc[0])
+            # for frame in [df_oracle1, df_oracle2]:
+            #     ax1.plot(frame['YEAR'], frame['FUNDING'], label=frame['STATE_NAME'].loc[0])
+            #     ax2.plot(frame['YEAR'], frame['ACCIDENTS'], label=frame['STATE_NAME'].loc[0])
             ax1.legend(bbox_to_anchor = (1,1), loc = "upper left")
             ax2.legend(bbox_to_anchor = (1,1), loc = "upper left")
         
@@ -324,8 +485,19 @@ class State(HydraHeadApp):
                 "Query by City or State",
                 ("State", "City")
             )
-            
+
+            self.query_choice = st.radio(
+                "What would you like to know more about?",
+                ("Funding", "Population", "Holiday Travel")
+            )
+
+            self.compare_amount = st.selectbox("Choose how many locations to compare", ["1", "2", "3", "4", "5"])
+
+
+            #print("self.query", self.query_choice)
+            print(type(self.compare_amount[0]))
             with st.form(key = 'form1'):
+
                 if (date_choice == "Year" or date_choice == "Date"):
                     st.header('Accidents by Year', anchor = None)
                     year_slider = st.slider(
@@ -337,21 +509,107 @@ class State(HydraHeadApp):
                 if (location_choice == "City"):
                     self.state_selection = False
                     st.header('City', anchor = None)
+
                     self.location1 = st.text_input("Enter city name 1")
+                    self.locations.append(self.location1)
                     self.location2 = st.text_input("Enter city name 2")
+                    self.locations.append(self.location2)
                    
                 else:
                     # State selection
                     self.state_selection = True
                     st.header('State', anchor = None)
-                    self.location1 = st.selectbox(
-                        "Select State 1", self.state_name    
+                    print("under else st.header")
+                    # self.location1 = st.selectbox(
+                    #     "Select State 1", self.state_name
+                    # )
+                    # self.locations.append(self.location1)
+                    # self.location2 = st.selectbox(
+                    #     "Select State 2", self.state_name
+                    # )
+                    # self.locations.append(self.location2)
+                    if self.compare_amount == '1':
+                        location = st.selectbox(
+                        "Select State 1", self.state_name
                     )
+                        self.locations.append(location)
+                        print("Under self.compare_amount == 1")
 
-                    self.location2 = st.selectbox(
-                        "Select State 2", self.state_name    
+                    elif self.compare_amount == '2':
+                        print('right under self.compare_amount = 2')
+                        location1 = st.selectbox(
+                        "Select State 1", self.state_name
                     )
-                    
+                        self.locations.append(location1)
+                        print("right above location2 selectbox")
+                        location2 = st.selectbox(
+                            "Select State 1", self.state_name,key=2
+                        )
+                        self.locations.append(location2)
+                        print('under self.locations.append(location2)')
+                    elif self.compare_amount == '3':
+                        location1 = st.selectbox(
+                            "Select State 1", self.state_name
+                        )
+                        self.locations.append(location1)
+
+                        location2 = st.selectbox(
+                            "Select State 1", self.state_name, key=2
+                        )
+                        self.locations.append(location2)
+                        location3 = st.selectbox(
+                            "Select State 1", self.state_name, key=3
+                        )
+                        self.locations.append(location3)
+
+                    elif self.compare_amount == '4':
+                        location1 = st.selectbox(
+                            "Select State 1", self.state_name
+                        )
+                        self.locations.append(location1)
+
+                        location2 = st.selectbox(
+                            "Select State 1", self.state_name, key=2
+                        )
+                        self.locations.append(location2)
+                        location3 = st.selectbox(
+                            "Select State 1", self.state_name, key=3
+                        )
+                        self.locations.append(location3)
+
+                        location4 = st.selectbox(
+                            "Select State 1", self.state_name, key=4
+                        )
+                        self.locations.append(location4)
+
+                    elif self.compare_amount == '5':
+                        location1 = st.selectbox(
+                            "Select State 1", self.state_name
+                        )
+                        self.locations.append(location1)
+
+                        location2 = st.selectbox(
+                            "Select State 1", self.state_name, key=2
+                        )
+                        self.locations.append(location2)
+                        location3 = st.selectbox(
+                            "Select State 1", self.state_name, key=3
+                        )
+                        self.locations.append(location3)
+
+                        location4 = st.selectbox(
+                            "Select State 1", self.state_name, key=4
+                        )
+                        self.locations.append(location4)
+
+                        location5 = st.selectbox(
+                            "Select State 1", self.state_name, key=5
+                        )
+                        self.locations.append(location5)
+
+
+
+
                 # multiselect weather. passes the condition to the weather function
                 st.header('Weather', anchor = None)
                 weather_multiselect = st.multiselect(
@@ -383,6 +641,7 @@ class State(HydraHeadApp):
                 )
                 self.time_condition(time_multiselect)
                 submitted = st.form_submit_button(label='Run Query')
+
 
     def load_map(self, location):
         temp_df = pd.DataFrame()
@@ -608,7 +867,8 @@ class State(HydraHeadApp):
         st.table(df_table)
 
     def run(self):
-
+        #print("HERRrrrrrrresoidjfosidjfpaoISDjfco;asIEfj")
+        #print("self.query", self.query_choice)
         st.image(Image.open('images/logo_banner.png'), use_column_width = True)
         st.header("Accidents by Location")
         self.load_sidebar()
@@ -629,9 +889,9 @@ class State(HydraHeadApp):
                          "Temperature Query: \n" + str(self.temp_query) + "\n\n" + 
                          "Time Query: \n" + str(self.time_query), height = 405)  
 
-        col4, col5 = st.columns(2) 
-        with col4:                 
-            self.load_graph(self.location1, self.location2)
 
-        with col5:    
-            self.load_table() 
+        self.load_graph(self.location1, self.location2)
+        self.locations.clear()
+
+        # with col5:
+        #     self.load_table()
