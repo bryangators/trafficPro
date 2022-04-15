@@ -12,19 +12,30 @@ import pydeck as pdk
 from PIL import Image
 import matplotlib.pyplot as plt
 plt.style.use('default')
+import plotly.graph_objects as go
+import plotly.io as pio
+pio.renderers
 
 
 class State(HydraHeadApp):
 
     def __init__(self):
-        self.years = ()
+        self.year = ()
         self.day = None
+        self.year = None
+        self.weather = None
+        self.time = None
+        self.temp = None
+        self.location_choice = None
         self.latitude = 29.6516
         self.longitude = -82.3248
+        self.date_choice = ""
         self.condition = ""
         self.temperature = ""
         self.location1 = ""
         self.location2 = ""
+        self.sum1 = None
+        self.sum2 = None
         self.state_selection = False
         self.time_query = pd.DataFrame()
         self.wthr_query = pd.DataFrame()
@@ -246,8 +257,8 @@ class State(HydraHeadApp):
             loc2 = "\'" + location2 + "\'"
             
             # builds string for year query
-            value = self.years[0]
-            while value != self.years[1]:
+            value = self.year[0]
+            while value != self.year[1]:
                 year_where += str(value) + ", "
                 value += 1
             year_where += str(value) + ")"
@@ -265,7 +276,7 @@ class State(HydraHeadApp):
                     SELECT * FROM cte_funding NATURAL JOIN cte_accidents
                     WHERE state_name IN ({loc1})
                     ORDER BY year"""
-
+            st.write(year_where)
             query2 = f"""WITH cte_funding AS(
                     SELECT sname AS state_name, year, funding
                     FROM "J.POULOS".state_fund),
@@ -315,26 +326,31 @@ class State(HydraHeadApp):
     def load_sidebar(self):
         with st.sidebar:
             st.image(Image.open('images/logo2.png'), width = 250)
-            date_choice = st.radio(
+            self.date_choice = st.radio(
                 "Query by Date or Year Range",
                 ("Date", "Year")
             )
 
-            location_choice = st.radio(
+            self.location_choice = st.radio(
                 "Query by City or State",
                 ("State", "City")
             )
             
             with st.form(key = 'form1'):
-                if (date_choice == "Year" or date_choice == "Date"):
+                if (self.date_choice == "Date"):
+                    st.header('Accidents by Date', anchor = None)
+                    self.day = st.date_input(
+                        "Date:", datetime.datetime(2020, 12, 30), min_value=datetime.datetime(2016, 2, 8), max_value=datetime.datetime(2020, 12, 30)
+                    )
+                else:
                     st.header('Accidents by Year', anchor = None)
-                    year_slider = st.slider(
+                    self.year = st.slider(
                         'Select the range of years',
                         2016, 2021, (2016, 2017)
                     )
-                    self.years = year_slider
+                   
 
-                if (location_choice == "City"):
+                if (self.location_choice == "City"):
                     self.state_selection = False
                     st.header('City', anchor = None)
                     self.location1 = st.text_input("Enter city name 1")
@@ -354,43 +370,48 @@ class State(HydraHeadApp):
                     
                 # multiselect weather. passes the condition to the weather function
                 st.header('Weather', anchor = None)
-                weather_multiselect = st.multiselect(
+                self.weather = st.multiselect(
                     'Select Weather Condition',
                     ['Clear', 'Cloudy', 'Drizzle', 'Fair', 'Fog', 'Hail', 'Haze', 'Heavy Rain', 
                     'Light Drizzle', 'Light Freezing Drizzle', 'Light Rain', 'Light Snow', 
-                    'Mostly Cloudy', 'Overcast', 'Partly Cloudy', 'Patched of Fog', 'Rain', 
+                    'Mostly Cloudy', 'Overcast', 'Partly Cloudy', 'Patches of Fog', 'Rain', 
                     'Scattered Clouds', 'Snow', 'Thunderstorm', 'Thunderstorms and Rain', 'Tornado']
                 )
-                self.weather_condition(weather_multiselect)
+                self.weather_condition(self.weather)
 
                 # multiselect temperature
                 st.header('Temperature', anchor = None)
-                temperature_multiselect = st.multiselect(
+                self.temp = st.multiselect(
                     'Select Temperature',
                     ['Temp < 00 °F', '00 - 19 °F', '20 - 39 °F', '40 - 59 °F', '60 - 79 °F', 'Temp > 80 °F']
                 )
-                self.temperature_condition(temperature_multiselect)
+                self.temperature_condition(self.temp)
 
                 # multiselect time
                 time = 'Time'
                 st.header(time, anchor = None)
-                time_multiselect = st.multiselect(
+                self.time = st.multiselect(
                     'Select Time',
                     ['12:00 AM - 02:59 AM', '03:00 AM - 05:59 AM',
                     '06:00 AM - 08:59 AM', '09:00 AM - 11:59 AM',
                     '12:00 PM - 02:59 PM', '03:00 PM - 05:59 PM',
                     '06:00 PM - 08:59 PM', '09:00 PM - 11:59 PM']
                 )
-                self.time_condition(time_multiselect)
+                self.time_condition(self.time)
                 submitted = st.form_submit_button(label='Run Query')
 
     def load_map(self, location):
         temp_df = pd.DataFrame()
-
-        if(self.state_selection == True):
-            temp_df = self.state_location(location)
-        else:
+        defaultRadius = 0
+        defaultZoom = 5
+        if(self.location_choice == "City"):
             temp_df = self.city_location(location)
+            defaultZoom = 8
+            defaultRadius = 400
+        else:
+            temp_df = self.state_location(location)
+            defaultZoom = 5
+            defaultRadius = 2000
         
         st.pydeck_chart(pdk.Deck(
             map_style = 'mapbox://styles/mapbox/light-v9',
@@ -398,7 +419,7 @@ class State(HydraHeadApp):
                 latitude = self.latitude,
                 longitude = self.longitude,
                 height = 440,
-                zoom = 5,
+                zoom = defaultZoom,
                 pitch = 10,
             ),
             layers = [
@@ -412,7 +433,7 @@ class State(HydraHeadApp):
                     pickable = True,
                     extruded = True,
                     get_color = '[200, 30, 0, 160]',
-                    get_radius = 2000,
+                    get_radius = defaultRadius,
                 )
             ],
         ))
@@ -469,11 +490,11 @@ class State(HydraHeadApp):
         # with a scatterplot based on long and lat. This is expensive.
         # doing the entire state of Florida takes 5 minutes.
         # currently limited to 500 rows for a state for faster loading.
-        state_accident_coordinates = """SELECT start_long, start_lat 
-                                        FROM "J.POULOS".Accident 
-                                        WHERE ROWNUM < 500 AND state_name = :state"""
+        coordinates = """SELECT start_long, start_lat 
+                         FROM "J.POULOS".Accident 
+                         WHERE ROWNUM < 500 AND state_name = :state"""
         
-        self.cursor.execute(state_accident_coordinates, state = current_state)
+        self.cursor.execute(coordinates, state = current_state)
        
         # adds the state accident lon and lat to the dataframe
         i = 0
@@ -607,12 +628,173 @@ class State(HydraHeadApp):
         )
         st.table(df_table)
 
+    def location_query(self, date_choice, location):
+        
+        result = f"""SELECT EXTRACT(year FROM start_time) AS Year, COUNT(*) AS Total_Accidents \nFROM "J.POULOS".ACCIDENT a\nWHERE """
+        
+        if self.location_choice == "City":
+            result += f"a.CITY_NAME = '{location}' AND\n"
+        else:
+            result += f"a.STATE_NAME = '{location}' AND\n"
+        
+        # add date conditions
+        if date_choice == 'Date':
+            result += f"trunc(start_time) = to_date('{self.day}', 'YYYY-MM-DD')\n"
+        else:
+            result += f"EXTRACT(year FROM start_time) BETWEEN {self.year[0]} AND {self.year[1]} \n"
+        
+        # add weather conditions
+        result += self.generate_weather_list()
+
+        # add temperature conditions
+        result += self.generate_temp_list()
+
+        # add time conditions
+        result += self.generate_time_list()
+        result += f"GROUP BY EXTRACT(year FROM start_time)\nORDER BY YEAR"
+        return result
+
+    # helper function to format list of weather conditions chosen
+    def generate_weather_list(self):
+        result = f""""""
+       
+        if self.weather:
+            for i, cond in enumerate(self.weather): 
+                if i == 0:
+                    if len(self.weather) == 1:
+                        result += f"""AND (condition LIKE '%{cond}%'"""
+                    else:
+                        result += f"""AND (condition LIKE '%{cond}%'\n"""
+                elif i != len(self.weather) - 1:
+                    result += f"""     OR condition LIKE '%{cond}%'\n"""
+                else: 
+                    result += f"""     OR condition LIKE '%{cond}%'""" 
+            result += """)\n"""     
+        return result
+
+    # helper function to format list of temp conditions chosen
+    def generate_temp_list(self):
+        
+        result = f""""""
+        
+        tempRange = []
+        
+        for i in range(0, len(self.temp)):
+            match self.temp[i]:
+                case "Temp < 00 °F":
+                    tempRange.append((-100, -0.1))
+                case "00 - 19 °F":
+                    tempRange.append((0, 19.9))   
+                case "20 - 39 °F":
+                    tempRange.append((20,39.9))
+                case "40 - 59 °F":
+                    tempRange.append((40, 59.9))
+                case "60 - 79 °F":
+                    tempRange.append((60, 79.9))
+                case "Temp > 80 °F":
+                    tempRange.append((80, 200))
+       
+        if tempRange:
+            tempRange.sort()
+            for i, t in enumerate(tempRange):
+                if i == 0:
+                    if len(tempRange) == 1:
+                        result += f"""AND (temperature BETWEEN {t[0]} AND {t[1]}"""
+                    else:
+                        result += f"""AND (temperature BETWEEN {t[0]} AND {t[1]}\n"""
+                elif i != len(tempRange) - 1:
+                    result += f"""     OR temperature BETWEEN {t[0]} AND {t[1]}\n"""
+                else:
+                    result += f"""     OR temperature BETWEEN {t[0]} AND {t[1]}"""
+            result += f""")\n""" 
+        
+        return result
+    
+    # helper function to format list of time conditions chosen
+    def generate_time_list(self):
+        result = f""""""
+        timeRange = []
+        
+        # adds the selected time conditions to
+        # the timeRange list.
+        for i in range(0, len(self.time)):
+            match self.time[i]:
+                case "12:00 AM - 02:59 AM":
+                    timeRange.append(("00:00:00", "02:59:59"))
+                case "03:00 AM - 05:59 AM":
+                    timeRange.append(("03:00:00", "05:59:59")) 
+                case "06:00 AM - 08:59 AM":
+                    timeRange.append(("06:00:00", "08:59:59"))
+                case "09:00 AM - 11:59 AM":
+                    timeRange.append(("09:00:00", "11:59:59")) 
+                case "12:00 PM - 02:59 PM":
+                    timeRange.append(("12:00:00", "14:59:59"))              
+                case "03:00 PM - 05:59 PM":
+                    timeRange.append(("15:00:00", "17:59:59"))    
+                case "06:00 PM - 08:59 PM":
+                    timeRange.append(("18:00:00", "20:59:59"))
+                case "09:00 PM - 11:59 PM":
+                    timeRange.append(("21:00:00", "23:59:59"))  
+        
+        if timeRange:
+            timeRange.sort()
+            for i, t in enumerate(timeRange):
+                if i == 0:
+                    if len(timeRange) == 1:
+                        result += f"""AND (to_char(start_time, 'hh24:mi:ss') BETWEEN '{t[0]}' AND '{t[1]}'"""
+                    else:
+                        result += f"""AND (to_char(start_time, 'hh24:mi:ss') BETWEEN '{t[0]}' AND '{t[1]}'\n"""
+                elif i != len(timeRange) - 1:
+                    result += f"""     OR to_char(start_time, 'hh24:mi:ss') BETWEEN '{t[0]}' AND '{t[1]}'\n"""
+                else:
+                    result += f"""     OR to_char(start_time, 'hh24:mi:ss') BETWEEN '{t[0]}' AND '{t[1]}'"""
+
+            result += f""")\n"""
+
+        return result
+    
+    def load_histogram(self, dframe, dframe2):
+     
+        temp = dframe['YEAR']
+        temp2 = dframe2['YEAR']
+        temp3 = dframe['TOTAL_ACCIDENTS']
+        temp4 = dframe2['TOTAL_ACCIDENTS']
+        self.sum1 = dframe['TOTAL_ACCIDENTS'].sum()
+        self.sum2 = dframe2['TOTAL_ACCIDENTS'].sum()
+        #x0 = np.random.randn(500)
+        #x1 = np.random.randn(500) + 1
+        
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            x=temp,
+            y=temp3,
+            name = self.location1, # name used in legend and hover labels
+            marker_color='#ED8C31',
+            opacity=0.75
+        ))
+        fig.add_trace(go.Bar(
+            x=temp2,
+            y=temp4,
+            name = self.location2,
+            marker_color='#3184ED',
+            opacity=1
+        ))
+
+        fig.update_layout(
+            title_text = 'Accident Data for Selected Years', # title of plot
+            xaxis_title_text = 'Year', # xaxis label
+            yaxis_title_text = 'Total Accidents', # yaxis label
+            bargap = 0.2, # gap between bars of adjacent location coordinates
+            bargroupgap = 0.1 # gap between bars of the same location coordinates
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
     def run(self):
 
         st.image(Image.open('images/logo_banner.png'), use_column_width = True)
         st.header("Accidents by Location")
         self.load_sidebar()
-
+        
         # creates a two column layout.
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -629,9 +811,22 @@ class State(HydraHeadApp):
                          "Temperature Query: \n" + str(self.temp_query) + "\n\n" + 
                          "Time Query: \n" + str(self.time_query), height = 405)  
 
-        col4, col5 = st.columns(2) 
-        with col4:                 
-            self.load_graph(self.location1, self.location2)
+        col4, col5 = st.columns(2)
+        data2 = None
+        
+        with col4:
+            data1 = self.location_query(self.date_choice, self.location1)
+            data2 = self.location_query(self.date_choice, self.location2)
+            df1 = pd.read_sql(data1, con = oracle_db.connection)
+            df2 = pd.read_sql(data2, con = oracle_db.connection)
+            st.code(data1 + ";", language='sql')
+            self.load_histogram(df1, df2)
 
-        with col5:    
-            self.load_table() 
+        with col5:
+            st.code(data2 + ";", language='sql')
+            st.text_area(f"Accident totals ", 
+                         "State1: " + self.location1 + "\n\n"
+                         "Total Accidents: " + str(self.sum1) + "\n\n"  
+                         "State1: " + self.location2 + "\n\n"
+                         "Total Accidents: " + str(self.sum2) + "\n\n" , height = 350) 
+           
