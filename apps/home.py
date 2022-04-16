@@ -163,7 +163,7 @@ class Home(HydraHeadApp):
                         WHERE sname != 'Alaska' and sname != 'Hawaii'
                         ORDER BY sname ASC"""
         state_list = pd.read_sql(state_query, con = oracle_db.connection)
-        print("here")
+        #print("here")
         state = st.selectbox(
                 'Choose a State',
                 state_list['STATE'])
