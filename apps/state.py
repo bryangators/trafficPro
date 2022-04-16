@@ -22,6 +22,7 @@ class State(HydraHeadApp):
     def __init__(self):
         self.year = ()
         self.day = None
+        self.day2 = None
         self.year = None
         self.weather = None
         self.time = None
@@ -37,10 +38,11 @@ class State(HydraHeadApp):
         self.sum1 = None
         self.sum2 = None
         self.state_selection = False
+        self.df_location1 = pd.DataFrame()
+        self.df_location1 = pd.DataFrame()
         self.time_query = pd.DataFrame()
         self.wthr_query = pd.DataFrame()
         self.temp_query = pd.DataFrame()
-        self.df_location = pd.DataFrame(columns = ['lon', 'lat'])
         self.cursor = oracle_db.connection.cursor()
         self.state_name = ('Alabama', 'Arizona', 'Arkansas', 'California', 'Colorado', 
                 'Connecticut', 'Delaware', 'Florida', 'Georgia', 'Idaho', 
@@ -340,7 +342,11 @@ class State(HydraHeadApp):
                 if (self.date_choice == "Date"):
                     st.header('Accidents by Date', anchor = None)
                     self.day = st.date_input(
-                        "Date:", datetime.datetime(2020, 12, 30), min_value=datetime.datetime(2016, 2, 8), max_value=datetime.datetime(2020, 12, 30)
+                        "Date 1:", datetime.datetime(2016, 2, 8), min_value=datetime.datetime(2016, 2, 8), max_value=datetime.datetime(2020, 12, 30)
+                    )
+
+                    self.day2 = st.date_input(
+                        "Date 2:", datetime.datetime(2016, 2, 8), min_value=datetime.datetime(2016, 2, 8), max_value=datetime.datetime(2020, 12, 30)
                     )
                 else:
                     st.header('Accidents by Year', anchor = None)
@@ -401,15 +407,17 @@ class State(HydraHeadApp):
                 submitted = st.form_submit_button(label='Run Query')
 
     def load_map(self, location):
-        temp_df = pd.DataFrame()
+
+        coordinates = self.coordinates(location)
         defaultRadius = 0
         defaultZoom = 5
+        
         if(self.location_choice == "City"):
-            temp_df = self.city_location(location)
+            self.city_location(location)
             defaultZoom = 8
             defaultRadius = 400
         else:
-            temp_df = self.state_location(location)
+            self.update_state(location)
             defaultZoom = 5
             defaultRadius = 2000
         
@@ -425,8 +433,8 @@ class State(HydraHeadApp):
             layers = [
                 pdk.Layer(
                     'ScatterplotLayer',
-                    data = temp_df,
-                    get_position = '[lon, lat]',
+                    data = coordinates,
+                    get_position = '[LON, LAT]',
                     radius = 200,
                     elevation_scale = 4,
                     elevation_range = [0, 1000],
@@ -439,8 +447,7 @@ class State(HydraHeadApp):
         ))
     
     def city_location(self, current_city):
-        temp_df = pd.DataFrame(columns = ['lon', 'lat'])
-        
+
         # query the city input by user
         city = """SELECT * FROM city WHERE name = :city_name"""
         self.cursor.execute(city, city_name = current_city)
@@ -456,56 +463,35 @@ class State(HydraHeadApp):
             long = row[1]
             self.latitude = float(lat)
             self.longitude = float(long) 
-        
-        # get the accident latitude and longitude for the specific city. 
-        # This is to update the map with a scatterplot
-        city_accident_coordinates = """SELECT start_long, start_lat
-                                        FROM "J.POULOS".accident a
-                                        JOIN "J.POULOS".city c ON c.name = a.city_name
-                                        WHERE ROWNUM < 500 AND a.city_name = :city_name"""
-        
-        self.cursor.execute(city_accident_coordinates, city_name = current_city)
-        
-        # adds the city lon and lat to the location dataframe
-        i = 0
-        for row in self.cursor:
-            lon = row[0]
-            lat = row[1]
-            temp1 = float(lon)
-            temp2 = float(lat)
-            
-            temp_df.loc[i] = [temp1, temp2]
-            i += 1
-     
-        return temp_df
 
-    def state_location(self, current_state):
-        # updates the map location to the selected state.
-        temp_df = pd.DataFrame(columns = ['lon', 'lat'])
-        self.update_state(current_state)
-        # dataframe and map for the state.
-        # grabs the longitude and latitude and appends it to
-        # the dataframe. The dataframe is passed to the scatterplot
-        # layer of pydeck_chart to update the map 
-        # with a scatterplot based on long and lat. This is expensive.
-        # doing the entire state of Florida takes 5 minutes.
-        # currently limited to 500 rows for a state for faster loading.
-        coordinates = """SELECT start_long, start_lat 
-                         FROM "J.POULOS".Accident 
-                         WHERE ROWNUM < 500 AND state_name = :state"""
+    # gets the latitude and longitude for current selections
+    def coordinates(self, location):
         
-        self.cursor.execute(coordinates, state = current_state)
-       
-        # adds the state accident lon and lat to the dataframe
-        i = 0
-        for row in self.cursor:
-            lon = row[0]
-            lat = row[1]
-            temp1 = float(lon)
-            temp2 = float(lat)
-            temp_df.loc[i] = [temp1, temp2]
-            i += 1
-        return temp_df
+        result = f"""SELECT  start_long AS lon, start_lat AS lat\nFROM "J.POULOS".ACCIDENT a\nWHERE """
+
+        if self.location_choice == "City":
+            result += f"a.CITY_NAME = '{location}' AND\n"
+        else:
+            result += f"a.STATE_NAME = '{location}' AND\n"
+        
+        # add date conditions based on a range of days selected
+        if self.date_choice == 'Date':
+            dates = [self.day, self.day2]
+            dates.sort()
+            result += f"trunc(start_time) BETWEEN to_date('{dates[0]}', 'YYYY-MM-DD') AND to_date('{dates[1]}', 'YYYY-MM-DD')\n"
+        else:
+            result += f"EXTRACT(year FROM start_time) BETWEEN {self.year[0]} AND {self.year[1]} \n"
+        
+        # add weather conditions
+        result += self.generate_weather_list()
+
+        # add temperature conditions
+        result += self.generate_temp_list()
+
+        # add time conditions
+        result += self.generate_time_list()
+        coord_Query = pd.read_sql(result, con = oracle_db.connection)
+        return coord_Query
 
     def weather_condition(self, wthr_condition):
         # Takes all of the conditions in the wthr_condition 
@@ -628,18 +614,26 @@ class State(HydraHeadApp):
         )
         st.table(df_table)
 
-    def location_query(self, date_choice, location):
+    def location_query(self, location):
         
-        result = f"""SELECT EXTRACT(year FROM start_time) AS Year, COUNT(*) AS Total_Accidents \nFROM "J.POULOS".ACCIDENT a\nWHERE """
+        # check if date or year
+        if self.date_choice == 'Date':
+            result = f"""SELECT to_char(trunc(start_time), 'Month') AS Month, EXTRACT(day FROM start_time) AS Day, COUNT(*) AS Total_Accidents \nFROM "J.POULOS".ACCIDENT a\nWHERE """
         
+        else:
+            result = f"""SELECT EXTRACT(year FROM start_time) AS Year, COUNT(*) AS Total_Accidents \nFROM "J.POULOS".ACCIDENT a\nWHERE """  
+
+        # check if city or state
         if self.location_choice == "City":
             result += f"a.CITY_NAME = '{location}' AND\n"
         else:
             result += f"a.STATE_NAME = '{location}' AND\n"
         
-        # add date conditions
-        if date_choice == 'Date':
-            result += f"trunc(start_time) = to_date('{self.day}', 'YYYY-MM-DD')\n"
+        # add date conditions based on a range of days selected
+        if self.date_choice == 'Date':
+            dates = [self.day, self.day2]
+            dates.sort()
+            result += f"trunc(start_time) BETWEEN to_date('{dates[0]}', 'YYYY-MM-DD') AND to_date('{dates[1]}', 'YYYY-MM-DD')\n"
         else:
             result += f"EXTRACT(year FROM start_time) BETWEEN {self.year[0]} AND {self.year[1]} \n"
         
@@ -651,8 +645,13 @@ class State(HydraHeadApp):
 
         # add time conditions
         result += self.generate_time_list()
-        result += f"GROUP BY EXTRACT(year FROM start_time)\nORDER BY YEAR"
-        return result
+        
+        if self.date_choice == 'Date':
+            result += f"GROUP BY to_char(trunc(start_time), 'Month'), EXTRACT(day FROM start_time) \nORDER BY MIN(Month), Day"
+            
+        else:
+            result += f"GROUP BY EXTRACT(year FROM start_time)\nORDER BY YEAR"
+        return result    
 
     # helper function to format list of weather conditions chosen
     def generate_weather_list(self):
@@ -755,34 +754,49 @@ class State(HydraHeadApp):
     
     def load_histogram(self, dframe, dframe2):
      
-        temp = dframe['YEAR']
-        temp2 = dframe2['YEAR']
-        temp3 = dframe['TOTAL_ACCIDENTS']
-        temp4 = dframe2['TOTAL_ACCIDENTS']
-        self.sum1 = dframe['TOTAL_ACCIDENTS'].sum()
-        self.sum2 = dframe2['TOTAL_ACCIDENTS'].sum()
-        #x0 = np.random.randn(500)
-        #x1 = np.random.randn(500) + 1
+        date1 = None
+        date2 = None
+        total1 = None
+        total2 = None
+        xLabel = ""
+        
+        if self.date_choice == 'Date':
+            xLabel = "Day"
+            date1 = dframe['DAY']
+            date2 = dframe2['DAY']
+            total1 = dframe['TOTAL_ACCIDENTS']
+            total2 = dframe2['TOTAL_ACCIDENTS']
+            self.sum1 = dframe['TOTAL_ACCIDENTS'].sum()
+            self.sum2 = dframe2['TOTAL_ACCIDENTS'].sum()
+        
+        else:
+            xLabel = "Year"
+            date1 = dframe['YEAR']
+            date2 = dframe2['YEAR']
+            total1 = dframe['TOTAL_ACCIDENTS']
+            total2 = dframe2['TOTAL_ACCIDENTS']
+            self.sum1 = dframe['TOTAL_ACCIDENTS'].sum()
+            self.sum2 = dframe2['TOTAL_ACCIDENTS'].sum()
         
         fig = go.Figure()
         fig.add_trace(go.Bar(
-            x=temp,
-            y=temp3,
+            x=date1,
+            y=total1,
             name = self.location1, # name used in legend and hover labels
             marker_color='#ED8C31',
             opacity=0.75
         ))
         fig.add_trace(go.Bar(
-            x=temp2,
-            y=temp4,
+            x=date2,
+            y=total2,
             name = self.location2,
             marker_color='#3184ED',
             opacity=1
         ))
 
         fig.update_layout(
-            title_text = 'Accident Data for Selected Years', # title of plot
-            xaxis_title_text = 'Year', # xaxis label
+            title_text = 'Accident Data for Selected Period', # title of plot
+            xaxis_title_text = xLabel, # xaxis label
             yaxis_title_text = 'Total Accidents', # yaxis label
             bargap = 0.2, # gap between bars of adjacent location coordinates
             bargroupgap = 0.1 # gap between bars of the same location coordinates
@@ -795,6 +809,14 @@ class State(HydraHeadApp):
         st.header("Accidents by Location")
         self.load_sidebar()
         
+        # calls query builder
+        data1 = self.location_query(self.location1)
+        data2 = self.location_query(self.location2)
+
+        # query dataframes
+        self.df_location1 = pd.read_sql(data1, con = oracle_db.connection)
+        self.df_location2 = pd.read_sql(data2, con = oracle_db.connection)
+
         # creates a two column layout.
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -812,21 +834,16 @@ class State(HydraHeadApp):
                          "Time Query: \n" + str(self.time_query), height = 405)  
 
         col4, col5 = st.columns(2)
-        data2 = None
-        
         with col4:
-            data1 = self.location_query(self.date_choice, self.location1)
-            data2 = self.location_query(self.date_choice, self.location2)
-            df1 = pd.read_sql(data1, con = oracle_db.connection)
-            df2 = pd.read_sql(data2, con = oracle_db.connection)
+            self.load_histogram(self.df_location1, self.df_location2)
             st.code(data1 + ";", language='sql')
-            self.load_histogram(df1, df2)
+            
 
         with col5:
-            st.code(data2 + ";", language='sql')
             st.text_area(f"Accident totals ", 
-                         "State1: " + self.location1 + "\n\n"
-                         "Total Accidents: " + str(self.sum1) + "\n\n"  
-                         "State1: " + self.location2 + "\n\n"
-                         "Total Accidents: " + str(self.sum2) + "\n\n" , height = 350) 
+                        "State1: " + self.location1 + "\n\n"
+                        "Total Accidents: " + str(self.sum1) + "\n\n"  
+                        "State2: " + self.location2 + "\n\n"
+                        "Total Accidents: " + str(self.sum2) + "\n\n" , height = 420)
+            st.code(data2 + ";", language='sql') 
            
