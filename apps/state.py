@@ -357,22 +357,23 @@ class State(HydraHeadApp):
                    
 
                 if (self.location_choice == "City"):
-                    self.state_selection = False
+                    #self.state_selection = False
                     st.header('City', anchor = None)
+                    self.state_selection = True                    
+                    self.location1 = st.selectbox(
+                        "Select State 1", self.state_name)
                     self.location1 = st.text_input("Enter city name 1")
+                    self.location2 = st.selectbox(
+                        "Select State 2", self.state_name)
                     self.location2 = st.text_input("Enter city name 2")
                    
                 else:
                     # State selection
                     self.state_selection = True
                     st.header('State', anchor = None)
-                    self.location1 = st.selectbox(
-                        "Select State 1", self.state_name    
-                    )
+                    self.location1 = st.selectbox("Select State 1", self.state_name)
 
-                    self.location2 = st.selectbox(
-                        "Select State 2", self.state_name    
-                    )
+                    self.location2 = st.selectbox("Select State 2", self.state_name)
                     
                 # multiselect weather. passes the condition to the weather function
                 st.header('Weather', anchor = None)
