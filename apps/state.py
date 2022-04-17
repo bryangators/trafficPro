@@ -397,6 +397,7 @@ class State(HydraHeadApp):
         result = f"""SELECT  start_long AS lon, start_lat AS lat\nFROM "J.POULOS".ACCIDENT a\nWHERE """
 
         if self.location_choice == "City":
+            result += f"a.STATE_NAME = '{location}' AND\n"
             result += f"a.CITY_NAME = '{location}' AND\n"
         else:
             result += f"a.STATE_NAME = '{location}' AND\n"
@@ -539,7 +540,8 @@ class State(HydraHeadApp):
 
         # check if city or state
         if self.location_choice == "City":
-            result += f"a.CITY_NAME = '{location}' \n\tAND "
+            result += f"a.STATE_NAME = '{location}' AND\n"
+            result += f"a.CITY_NAME = '{location}' \n\tAND "           
         else:
             result += f"a.STATE_NAME = '{location}' \nAND "
         
