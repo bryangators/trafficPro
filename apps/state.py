@@ -29,13 +29,15 @@ class State(HydraHeadApp):
         self.time = None
         self.temp = None
         self.location_choice = None
-        self.latitude = 29.6516
-        self.longitude = -82.3248
+        self.latitude = 32.3792
+        self.longitude = -86.3077
         self.date_choice = ""
         self.condition = ""
         self.temperature = ""
-        self.location1 = ""
-        self.location2 = ""
+        self.state1 = ""
+        self.state2 = ""
+        self.city1 = ""
+        self.city2 = ""
         self.sum1 = None
         self.sum2 = None
         self.state_selection = False
@@ -46,6 +48,7 @@ class State(HydraHeadApp):
         self.temp_query = pd.DataFrame()
         self.formState1 = False
         self.formState2 = False
+        self.form = False
         self.cursor = oracle_db.connection.cursor()
         self.state_name = ('Alabama', 'Arizona', 'Arkansas', 'California', 'Colorado', 
                 'Connecticut', 'Delaware', 'Florida', 'Georgia', 'Idaho', 
@@ -255,12 +258,12 @@ class State(HydraHeadApp):
         with st.sidebar:
             st.image(Image.open('images/logo2.png'), width = 250)
             self.date_choice = st.radio(
-                "Query by Date or Year Range",
-                ("Date", "Year")
+                "Query by Year or Date Range",
+                ("Year", "Date")
             )
 
             self.location_choice = st.radio(
-                "Query by City or State",
+                "Query by State or City",
                 ("State", "City")
             )
             
@@ -268,11 +271,15 @@ class State(HydraHeadApp):
                 if (self.date_choice == "Date"):
                     st.header('Accidents by Date', anchor = None)
                     self.day = st.date_input(
-                        "Date 1:", datetime.datetime(2016, 2, 8), min_value=datetime.datetime(2016, 2, 8), max_value=datetime.datetime(2020, 12, 30)
+                        "Date 1:", datetime.datetime(2016, 2, 8), 
+                        min_value = datetime.datetime(2016, 2, 8), 
+                        max_value = datetime.datetime(2020, 12, 30)
                     )
 
                     self.day2 = st.date_input(
-                        "Date 2:", datetime.datetime(2016, 2, 8), min_value=datetime.datetime(2016, 2, 8), max_value=datetime.datetime(2020, 12, 30)
+                        "Date 2:", datetime.datetime(2016, 2, 8), 
+                        min_value = datetime.datetime(2016, 2, 8),
+                        max_value = datetime.datetime(2020, 12, 30)
                     )
                 else:
                     st.header('Accidents by Year', anchor = None)
@@ -284,21 +291,25 @@ class State(HydraHeadApp):
                 if (self.location_choice == "City"):
                     #self.state_selection = False
                     st.header('City', anchor = None)
-                    self.state_selection = True                    
-                    self.location1 = st.selectbox("Select State 1", self.state_name)
-                    self.location1 = st.text_input("Enter city name 1")
-                    self.location2 = st.selectbox("Select State 2", self.state_name)
-                    self.location2 = st.text_input("Enter city name 2")
+                    self.state_selection = True
+
+                    self.state1 = st.selectbox("Select State 1", self.state_name)
+                    self.city1 = "Montgomery"
+                    self.city1 = st.text_input("Enter city name 1")
+                    
+                    self.state2 = st.selectbox("Select State 2", self.state_name)
+                    self.city2 = "Montgomery"
+                    self.city2 = st.text_input("Enter city name 2")
                    
                 else:
                     # State selection
                     self.state_selection = True
                     st.header('State', anchor = None)
-                    self.location1 = st.selectbox(
+                    self.state1 = st.selectbox(
                         "Select State 1", self.state_name    
                     )
 
-                    self.location2 = st.selectbox(
+                    self.state2 = st.selectbox(
                         "Select State 2", self.state_name    
                     )
                     
@@ -332,20 +343,22 @@ class State(HydraHeadApp):
                     '06:00 PM - 08:59 PM', '09:00 PM - 11:59 PM']
                 )
                 self.time_condition(self.time)
-                submitted = st.form_submit_button(label='Run Query')
+                self.form = st.form_submit_button(label='Run Query')
 
-    def load_map(self, location):
+    def load_map(self, state, city):
 
-        coordinates = self.coordinates(location)
+        coordinates = pd.DataFrame()
         defaultRadius = 0
         defaultZoom = 5
         
         if(self.location_choice == "City"):
-            self.city_location(location)
+            coordinates = self.coordinates(state, city)
+            self.city_location(city)
             defaultZoom = 8
             defaultRadius = 400
         else:
-            self.update_state(location)
+            coordinates = self.coordinates(state, "")
+            self.update_state(state)
             defaultZoom = 5.5
             defaultRadius = 2000
         
@@ -361,7 +374,7 @@ class State(HydraHeadApp):
             layers = [
                 pdk.Layer(
                     'ScatterplotLayer',
-                    data = coordinates[:30000],
+                    data = coordinates[:3000],
                     get_position = '[LON, LAT]',
                     radius = 200,
                     elevation_scale = 4,
@@ -373,13 +386,9 @@ class State(HydraHeadApp):
                 )
             ],
         ))
-    
+
     def city_location(self, current_city):
 
-        # query the city input by user
-        city = """SELECT * FROM city WHERE name = :city_name"""
-        self.cursor.execute(city, city_name = current_city)
-       
         # get the city latitude and longitude. This is to zoom the
         # the map to the location of the city
         city_coordinates = """SELECT c.latitude, c.longitude 
@@ -392,15 +401,15 @@ class State(HydraHeadApp):
             self.latitude = float(lat)
             self.longitude = float(long) 
 
-    def coordinates(self, location):
+    def coordinates(self, state, city):
         
         result = f"""SELECT  start_long AS lon, start_lat AS lat\nFROM "J.POULOS".ACCIDENT a\nWHERE """
 
         if self.location_choice == "City":
-            result += f"a.STATE_NAME = '{location}' AND\n"
-            result += f"a.CITY_NAME = '{location}' AND\n"
+            result += f"a.STATE_NAME = '{state}' AND\n"
+            result += f"a.CITY_NAME = '{city}' AND\n"
         else:
-            result += f"a.STATE_NAME = '{location}' AND\n"
+            result += f"a.STATE_NAME = '{state}' AND\n"
         
         # add date conditions based on a range of days selected
         if self.date_choice == 'Date':
@@ -529,7 +538,7 @@ class State(HydraHeadApp):
                        AND to_char(start_time, 'hh24:mi:ss') BETWEEN {start} AND {end}"""
             self.time_query = pd.read_sql(time, con = oracle_db.connection)
 
-    def location_query(self, location):
+    def location_query(self, state, city):
 
         # check if date or year
         if self.date_choice == 'Date':
@@ -540,10 +549,9 @@ class State(HydraHeadApp):
 
         # check if city or state
         if self.location_choice == "City":
-            result += f"a.STATE_NAME = '{location}' AND\n"
-            result += f"a.CITY_NAME = '{location}' \n\tAND "           
+            result += f"a.STATE_NAME = '{state}' AND a.CITY_NAME = '{city}' \n\tAND "           
         else:
-            result += f"a.STATE_NAME = '{location}' \nAND "
+            result += f"a.STATE_NAME = '{state}' \nAND "
         
         # add date conditions based on a range of days selected
         if self.date_choice == 'Date':
@@ -676,7 +684,14 @@ class State(HydraHeadApp):
         total2 = None
         xLabel = ""
         
-        if self.date_choice == 'Date':
+        if dframe.empty or dframe2.empty:
+            xLabel = "Accident Data"
+            date1 = pd.DataFrame()
+            date2 = pd.DataFrame()
+            total1 = pd.DataFrame()
+            total2 = pd.DataFrame()
+
+        elif self.date_choice == 'Date':
             xLabel = "Accidents for the specified date range"
             date1 = dframe['TIME']
             date2 = dframe2['TIME']
@@ -686,7 +701,7 @@ class State(HydraHeadApp):
             self.sum2 = dframe2['TOTAL_ACCIDENTS'].sum()
         
         else:
-            xLabel = "Year"
+            xLabel = "Years"
             date1 = dframe['YEAR']
             date2 = dframe2['YEAR']
             total1 = dframe['TOTAL_ACCIDENTS']
@@ -698,18 +713,18 @@ class State(HydraHeadApp):
         fig.add_trace(go.Bar(
             x = date1,
             y = total1,
-            name = self.location1,
+            name = self.state1,
             marker_color = '#ED8C31',
             opacity = 0.90
         ))
         fig.add_trace(go.Bar(
             x = date2,
             y = total2,
-            name = self.location2,
+            name = self.state2,
             marker_color = '#3184ED',
             opacity = 0.90
         ))
-
+        
         fig.update_layout(
             legend = dict(
                 font = dict(family = "Arial", size = 18),
@@ -729,10 +744,11 @@ class State(HydraHeadApp):
     def load_line_graph(self, location1, location2):
 
         if self.location_choice == "State" and self.date_choice == "Year":
+            st.header(f"State Funding 2016 - 2019")
             col1, col2, col3 = st.columns(3)
             
             with col1:    
-                st.subheader(f"Funding:\n {location1}")
+                st.subheader(f"\n {location1}")
                 where = "WHERE state_name IN ("
                 states = []
                 modified_states = []
@@ -804,7 +820,7 @@ class State(HydraHeadApp):
                     st.session_state.load_state = True
 
                     with col2: 
-                        st.subheader(f"Funding:\n {location1} vs {location2}")  
+                        st.subheader(f"\n {location1} vs {location2}")  
                         if location2 not in states:
                             states.append(location2)
 
@@ -878,7 +894,7 @@ class State(HydraHeadApp):
                                 while random_state == location1 or random_state == location2:
                                     random_state = random.choice(self.state_name)
                                     
-                                st.subheader(f"Funding:\n{location1} vs {location2} vs randomly chosen state {random_state}")
+                                st.subheader(f"\n{location1} vs {location2} vs random state {random_state}")
                                 
                                 if random_state not in states:
                                     states.append(random_state)
@@ -941,54 +957,108 @@ class State(HydraHeadApp):
                                 st.pyplot(fig=plt)
 
     def run(self):
-
+      
         st.image(Image.open('images/logo_banner.png'), use_column_width = True)
         
         self.load_sidebar()
+        data1 = ""
+        data2 = ""
         
+        if self.form:
         # calls query builder
-        data1 = self.location_query(self.location1)
-        data2 = self.location_query(self.location2)
+            if self.location_choice == "City":
+                data1 = self.location_query(self.state1, self.city1)
+                data2 = self.location_query(self.state2, self.city2)
+            else:
+                data1 = self.location_query(self.state1, "")
+                data2 = self.location_query(self.state2, "")
 
-        # query dataframes
-        self.df_location1 = pd.read_sql(data1, con = oracle_db.connection)
-        self.df_location2 = pd.read_sql(data2, con = oracle_db.connection)
-
+            # query dataframes
+            self.df_location1 = pd.read_sql(data1, con = oracle_db.connection)
+            self.df_location2 = pd.read_sql(data2, con = oracle_db.connection)
+            
         # creates a two column layout.
         col1, col2, col3 = st.columns([1.25, 1.25, 1])
         with col1:
-            st.header(f"Accident locations for {self.location1}")
-            # updates the left map to the state selected.
-            self.load_map(self.location1)
+            if self.form == False and self.location_choice == "City":
+                st.header(f"Accident locations")
+                self.load_map("", "")
 
+            elif self.form and self.location_choice == "City":
+                st.header(f"Accident locations for {self.city1}, {self.state1}")
+                self.load_map(self.state1, self.city1)
+            
+            elif self.form == False and self.location_choice == "State":
+                st.header(f"Accident locations")
+                self.load_map("", "")
+            
+            else:
+                st.header(f"Accident locations for {self.state1}")
+                self.load_map(self.state1, "")
+                
         with col2:
-            st.header(f"Accident locations for {self.location2}")
-            # updates the right map to the state selected.
-            self.load_map(self.location2)
+            if self.form == False and self.location_choice == "City":
+                st.header(f"Accident locations")
+                self.load_map("", "")
+
+            elif self.form and self.location_choice == "City":
+                st.header(f"Accident locations for {self.city2}, {self.state2}")
+                self.load_map(self.state2, self.city2)
+            
+            elif self.form == False and self.location_choice == "State":
+                st.header(f"Accident locations")
+                self.load_map("", "")
+            
+            else:
+                st.header(f"Accident locations for {self.state2}")
+                self.load_map(self.state2, "")
 
         with col3:
             st.header("Data")
             st.text_area("", 
-                    "State1: " + self.location1 + "\n\n"
+                    "State1: " + self.state1 + "\n\n"
                     "Total Accidents: " + str(self.sum1) + "\n\n"  
-                    "State2: " + self.location2 + "\n\n"
+                    "State2: " + self.state2 + "\n\n"
                     "Total Accidents: " + str(self.sum2) + "\n\n" , height = 500)
-        
+       
         # page separator
         st.markdown("""***""") 
         
         col4, col5 = st.columns([2.5,1])
         with col4:
-            st.header(f"Accident data for {self.location1} and {self.location2}")
-            self.load_bar_graph(self.df_location1, self.df_location2)
+            if self.form == False and self.location_choice == "City":
+                st.header(f"Accident data")
+                self.load_bar_graph(pd.DataFrame(), pd.DataFrame())
+            
+            elif self.form and self.location_choice == "City":
+                st.header(f"Accident data for {self.city1} and {self.city2}")
+                self.load_bar_graph(self.df_location1, self.df_location2)
+            
+            elif self.form == False and self.location_choice == "State":
+                st.header(f"Accident data")
+                self.load_bar_graph(pd.DataFrame(), pd.DataFrame())
+            else:
+                st.header(f"Accident data for {self.state1} and {self.state2}")
+                self.load_bar_graph(self.df_location1, self.df_location2)
            
         with col5:
-            with st.container():
-                st.subheader(f"Query for {self.location1} :")
-                st.code(data1 + ";", language ='sql')
-                st.subheader(f"Query for {self.location2} :")        
-                st.code(data2 + ";", language ='sql')
-           
+            if self.location_choice == "City":
+                with st.container():
+                    if self.form:
+                        st.subheader(f"Query for {self.city1}, {self.state1} :")
+                        st.code(data1 + ";", language ='sql')
+                        st.subheader(f"Query for for {self.city2}, {self.state2} :")        
+                        st.code(data2 + ";", language ='sql')
+
+            else:
+                with st.container():
+                    if self.form:
+                        st.subheader(f"Query for {self.state1} :")
+                        st.code(data1 + ";", language ='sql')
+                        st.subheader(f"Query for {self.state2} :")        
+                        st.code(data2 + ";", language ='sql')
+
         st.markdown("""***""")
-        self.load_line_graph(self.location1, self.location2)
+        self.load_line_graph(self.state1, self.state2)
+       
                
