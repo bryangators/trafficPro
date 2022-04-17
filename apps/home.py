@@ -96,7 +96,7 @@ class Home(HydraHeadApp):
             if (date_choice == 'Date'):
                 st.caption(f"Total on {self.day}")
             else:
-                st.caption(f"Total in {self.year}")
+                st.caption(f"Total from 2016 through {self.year}")
 
             map_query = self.generate_map_query(date_choice)
             map_df = pd.read_sql(map_query, con = oracle_db.connection)
@@ -130,7 +130,7 @@ class Home(HydraHeadApp):
             if (date_choice == 'Date'):
                 st.caption(f"Total on {self.day}")
             else:
-                st.caption(f"Total in {self.year}")
+                st.caption(f"Total from 2016 through {self.year}")
 
             #Creates queries dynamically and stores the query code in USData
             USData = self.generate_query1(date_choice)
@@ -152,7 +152,7 @@ class Home(HydraHeadApp):
             top10_fig.update_layout(barmode='stack', yaxis={'categoryorder':'total ascending'})
             st.write(top10_fig, use_container_width=True)
             # st.bar_chart(USData4graph['ACCIDENTS'])
-            # st.text("SQL for Above Query:")
+            st.text("SQL for Above Query:")
             st.code(USData + ";", language='sql')
 
         
