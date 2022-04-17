@@ -170,20 +170,19 @@ class Home(HydraHeadApp):
 
         # FUNDING GRAPH
         st.header(f"{state} Funding vs Accidents")
-        hist_query = self.generate_funding_query(state)
-        hist_df = pd.read_sql(hist_query, con = oracle_db.connection)
-        hist_df.sort_values('YEAR')
+        fund_query = self.generate_funding_query(state)
+        fund_df = pd.read_sql(fund_query, con = oracle_db.connection)
         # Create figure with secondary y-axis
         fund_fig = make_subplots(specs=[[{"secondary_y": True}]])
 
         # Add traces
         fund_fig.add_trace(
-            go.Scatter(x=hist_df['YEAR'], y=hist_df['FUNDING'], name="Funding"),
+            go.Scatter(x=fund_df['YEAR'], y=fund_df['FUNDING'], name="Funding"),
             secondary_y=False,
         )
 
         fund_fig.add_trace(
-            go.Scatter(x=hist_df['YEAR'], y=hist_df['ACCIDENTS'], name="Accidents"),
+            go.Scatter(x=fund_df['YEAR'], y=fund_df['ACCIDENTS'], name="Accidents"),
             secondary_y=True,
         )
 
@@ -204,12 +203,10 @@ class Home(HydraHeadApp):
         #POPULATION GRAPH
         st.header(f"{state} Population vs Accidents")
         pop_query = self.generate_pop_query(state)
+        
         pop_df = pd.read_sql(pop_query, con = oracle_db.connection)
-        pop_df.sort_values('YEAR')
         # Create figure with secondary y-axis
         pop_fig = make_subplots(specs=[[{"secondary_y": True}]])
-
-
 
         # Add traces
         pop_fig.add_trace(
@@ -218,7 +215,7 @@ class Home(HydraHeadApp):
         )
 
         pop_fig.add_trace(
-            go.Scatter(x=pop_df['YEAR'], y=hist_df['ACCIDENTS'], name="Accidents"),
+            go.Scatter(x=pop_df['YEAR'], y=pop_df['ACCIDENTS'], name="Accidents"),
             secondary_y=True,
         )
 
@@ -315,7 +312,8 @@ class Home(HydraHeadApp):
 
                     SELECT t.state_name as state, t.year as year, t.accidents as accidents, f.funding as funding
                     FROM totals t, "J.POULOS".STATE_FUND f
-                    WHERE t.year = f.year and t.state_name = f.sname"""
+                    WHERE t.year = f.year and t.state_name = f.sname
+                    ORDER BY year ASC"""
 
         return result
     
@@ -328,7 +326,8 @@ class Home(HydraHeadApp):
 
                     SELECT t.state_name as state, t.year as year, t.accidents as accidents, p.population
                     FROM totals t, "J.POULOS".STATE_POP p
-                    WHERE t.year = p.year and t.state_name = p.sname"""
+                    WHERE t.year = p.year and t.state_name = p.sname
+                    ORDER BY year ASC"""
 
         return result
 
