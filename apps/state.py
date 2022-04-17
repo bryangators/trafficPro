@@ -1,6 +1,6 @@
+from logging import PlaceHolder
 from sqlite3 import Cursor
 import streamlit as st
-import re
 from hydralit import HydraHeadApp
 from db import db_conn as oracle_db
 import streamlit as st
@@ -15,7 +15,8 @@ plt.style.use('default')
 import plotly.graph_objects as go
 import plotly.io as pio
 pio.renderers
-
+import plotly.express as px
+import random
 
 class State(HydraHeadApp):
 
@@ -43,6 +44,8 @@ class State(HydraHeadApp):
         self.time_query = pd.DataFrame()
         self.wthr_query = pd.DataFrame()
         self.temp_query = pd.DataFrame()
+        self.formState1 = False
+        self.formState2 = False
         self.cursor = oracle_db.connection.cursor()
         self.state_name = ('Alabama', 'Arizona', 'Arkansas', 'California', 'Colorado', 
                 'Connecticut', 'Delaware', 'Florida', 'Georgia', 'Idaho', 
@@ -52,7 +55,7 @@ class State(HydraHeadApp):
                 'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 
                 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 
                 'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 
-                'West Virginia', 'Wisconsin', 'Wyoming') 
+                'West Virginia', 'Wisconsin', 'Wyoming')
 
     def update_state(self, name):
         match name:
@@ -246,84 +249,7 @@ class State(HydraHeadApp):
 
             case "Wyoming":
                 self.latitude = 43.075970
-                self.longitude = -107.290283   
-        
-    def load_graph(self, location1, location2):
-        # this is temporary. Put here to make sure it doesn't break
-        # when location passed in is a city. Fix later.
-        if self.state_selection == True:
-            
-            st.header("State Funding")
-            year_where = "WHERE EXTRACT(year FROM start_time) IN ("
-            loc1 = "\'" + location1 + "\'"
-            loc2 = "\'" + location2 + "\'"
-            
-            # builds string for year query
-            value = self.year[0]
-            while value != self.year[1]:
-                year_where += str(value) + ", "
-                value += 1
-            year_where += str(value) + ")"
-
-            query1 = f"""WITH cte_funding AS(
-                    SELECT sname AS state_name, year, funding
-                    FROM "J.POULOS".state_fund),
-
-                    cte_accidents AS (
-                    SELECT COUNT(id) AS accidents, EXTRACT(year FROM start_time) AS year, state_name
-                    FROM "J.POULOS".accident
-                    {year_where}
-                    GROUP BY state_name, EXTRACT(year FROM start_time))
-
-                    SELECT * FROM cte_funding NATURAL JOIN cte_accidents
-                    WHERE state_name IN ({loc1})
-                    ORDER BY year"""
-            st.write(year_where)
-            query2 = f"""WITH cte_funding AS(
-                    SELECT sname AS state_name, year, funding
-                    FROM "J.POULOS".state_fund),
-
-                    cte_accidents AS (
-                    SELECT COUNT(id) AS accidents, EXTRACT(year FROM start_time) AS year, state_name
-                    FROM "J.POULOS".accident
-                    {year_where}
-                    GROUP BY state_name, EXTRACT(year FROM start_time))
-
-                    SELECT * FROM cte_funding NATURAL JOIN cte_accidents
-                    WHERE state_name IN ({loc2})
-                    ORDER BY year"""
-
-            df_oracle1 = pd.read_sql(query1, con=oracle_db.connection)
-            df_oracle2 = pd.read_sql(query2, con=oracle_db.connection)
-            
-            fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize = (5, 3))
-        
-            ax1.set_title('Funding')
-            ax1.set_ylabel('Dollar Amount')
-        
-            ax2.set_title('Amount of Accidents', fontsize=12)
-            ax2.set_xlabel('Year', fontsize=12)
-            ax2.set_ylabel('Accidents')
-            
-            ax1.plot(df_oracle1['YEAR'], df_oracle1['FUNDING'])
-            ax2.plot(df_oracle1['YEAR'], df_oracle1['ACCIDENTS'])
-        
-            for frame in [df_oracle1, df_oracle2]:
-                ax1.plot(frame['YEAR'], frame['FUNDING'], label=frame['STATE_NAME'].loc[0])
-                ax2.plot(frame['YEAR'], frame['ACCIDENTS'], label=frame['STATE_NAME'].loc[0])
-            ax1.legend(bbox_to_anchor = (1,1), loc = "upper left")
-            ax2.legend(bbox_to_anchor = (1,1), loc = "upper left")
-        
-            for tick in ([ax1.title, ax1.xaxis.label, ax1.yaxis.label, ax2.title,
-                        ax2.xaxis.label, ax2.yaxis.label] + ax1.get_xticklabels() +
-                        ax2.get_xticklabels() + ax1.get_yticklabels() + ax2.get_yticklabels()):
-                tick.set_fontsize(6)
-            
-            ax1.set_xticks(df_oracle1['YEAR'])
-            ax2.set_xticks(df_oracle1['YEAR'])
-            st.pyplot(fig=plt)
-            st.write(df_oracle1)
-            st.write(df_oracle2)
+                self.longitude = -107.290283           
                 
     def load_sidebar(self):
         with st.sidebar:
@@ -355,7 +281,6 @@ class State(HydraHeadApp):
                         2016, 2021, (2016, 2017)
                     )
                    
-
                 if (self.location_choice == "City"):
                     self.state_selection = False
                     st.header('City', anchor = None)
@@ -418,7 +343,7 @@ class State(HydraHeadApp):
             defaultRadius = 400
         else:
             self.update_state(location)
-            defaultZoom = 5
+            defaultZoom = 5.5
             defaultRadius = 2000
         
         st.pydeck_chart(pdk.Deck(
@@ -426,14 +351,14 @@ class State(HydraHeadApp):
             initial_view_state = pdk.ViewState(
                 latitude = self.latitude,
                 longitude = self.longitude,
-                height = 440,
+                height = 530,
                 zoom = defaultZoom,
                 pitch = 10,
             ),
             layers = [
                 pdk.Layer(
                     'ScatterplotLayer',
-                    data = coordinates,
+                    data = coordinates[:30000],
                     get_position = '[LON, LAT]',
                     radius = 200,
                     elevation_scale = 4,
@@ -464,7 +389,6 @@ class State(HydraHeadApp):
             self.latitude = float(lat)
             self.longitude = float(long) 
 
-    # gets the latitude and longitude for current selections
     def coordinates(self, location):
         
         result = f"""SELECT  start_long AS lon, start_lat AS lat\nFROM "J.POULOS".ACCIDENT a\nWHERE """
@@ -494,11 +418,6 @@ class State(HydraHeadApp):
         return coord_Query
 
     def weather_condition(self, wthr_condition):
-        # Takes all of the conditions in the wthr_condition 
-        # parameter and builds a comma separted string of 
-        # the conditions for the query below.
-        # wthr_condition is passed in from the multiselect 
-        # dropdown in the sidebar function.
         self.condition = "("
         for i in range(0, len(wthr_condition)):
             self.condition = self.condition + "\'" + str(wthr_condition[i]) + "\'"
@@ -606,34 +525,26 @@ class State(HydraHeadApp):
                        AND to_char(start_time, 'hh24:mi:ss') BETWEEN {start} AND {end}"""
             self.time_query = pd.read_sql(time, con = oracle_db.connection)
 
-    def load_table(self):
-        st.header('State Data', anchor = None)
-        df_table = pd.DataFrame(
-            np.random.randn(10, 5),
-            columns=('col %d' % i for i in range(5))
-        )
-        st.table(df_table)
-
     def location_query(self, location):
-        
+
         # check if date or year
         if self.date_choice == 'Date':
-            result = f"""SELECT to_char(trunc(start_time), 'Month') AS Month, EXTRACT(day FROM start_time) AS Day, COUNT(*) AS Total_Accidents \nFROM "J.POULOS".ACCIDENT a\nWHERE """
+            result = f"""SELECT trunc(start_time) AS time,\nCOUNT(*) AS Total_Accidents \nFROM "J.POULOS".ACCIDENT a\nWHERE """
         
         else:
-            result = f"""SELECT EXTRACT(year FROM start_time) AS Year, COUNT(*) AS Total_Accidents \nFROM "J.POULOS".ACCIDENT a\nWHERE """  
+            result = f"""SELECT EXTRACT(year FROM start_time) AS Year,\nCOUNT(*) AS Total_Accidents \nFROM "J.POULOS".ACCIDENT a\nWHERE """  
 
         # check if city or state
         if self.location_choice == "City":
-            result += f"a.CITY_NAME = '{location}' AND\n"
+            result += f"a.CITY_NAME = '{location}' \n\tAND "
         else:
-            result += f"a.STATE_NAME = '{location}' AND\n"
+            result += f"a.STATE_NAME = '{location}' \nAND "
         
         # add date conditions based on a range of days selected
         if self.date_choice == 'Date':
             dates = [self.day, self.day2]
             dates.sort()
-            result += f"trunc(start_time) BETWEEN to_date('{dates[0]}', 'YYYY-MM-DD') AND to_date('{dates[1]}', 'YYYY-MM-DD')\n"
+            result += f"trunc(start_time) BETWEEN \n\tto_date('{dates[0]}', 'YYYY-MM-DD') AND \n\tto_date('{dates[1]}', 'YYYY-MM-DD')\n"
         else:
             result += f"EXTRACT(year FROM start_time) BETWEEN {self.year[0]} AND {self.year[1]} \n"
         
@@ -647,7 +558,7 @@ class State(HydraHeadApp):
         result += self.generate_time_list()
         
         if self.date_choice == 'Date':
-            result += f"GROUP BY to_char(trunc(start_time), 'Month'), EXTRACT(day FROM start_time) \nORDER BY MIN(Month), Day"
+            result += f"GROUP BY trunc(start_time) \nORDER BY time"
             
         else:
             result += f"GROUP BY EXTRACT(year FROM start_time)\nORDER BY YEAR"
@@ -740,20 +651,20 @@ class State(HydraHeadApp):
             for i, t in enumerate(timeRange):
                 if i == 0:
                     if len(timeRange) == 1:
-                        result += f"""AND (to_char(start_time, 'hh24:mi:ss') BETWEEN '{t[0]}' AND '{t[1]}'"""
+                        result += f"""AND (to_char(start_time, 'hh24:mi:ss')\n\tBETWEEN '{t[0]}' AND '{t[1]}'"""
                     else:
-                        result += f"""AND (to_char(start_time, 'hh24:mi:ss') BETWEEN '{t[0]}' AND '{t[1]}'\n"""
+                        result += f"""AND (to_char(start_time, 'hh24:mi:ss')\n\tBETWEEN '{t[0]}' AND '{t[1]}'\n"""
                 elif i != len(timeRange) - 1:
-                    result += f"""     OR to_char(start_time, 'hh24:mi:ss') BETWEEN '{t[0]}' AND '{t[1]}'\n"""
+                    result += f"""     OR to_char(start_time, 'hh24:mi:ss')\n\tBETWEEN '{t[0]}' AND '{t[1]}'\n"""
                 else:
-                    result += f"""     OR to_char(start_time, 'hh24:mi:ss') BETWEEN '{t[0]}' AND '{t[1]}'"""
+                    result += f"""     OR to_char(start_time, 'hh24:mi:ss')\n\tBETWEEN '{t[0]}' AND '{t[1]}'"""
 
             result += f""")\n"""
 
         return result
     
-    def load_histogram(self, dframe, dframe2):
-     
+    def load_bar_graph(self, dframe, dframe2):
+       
         date1 = None
         date2 = None
         total1 = None
@@ -761,9 +672,9 @@ class State(HydraHeadApp):
         xLabel = ""
         
         if self.date_choice == 'Date':
-            xLabel = "Day"
-            date1 = dframe['DAY']
-            date2 = dframe2['DAY']
+            xLabel = "Accidents for the specified date range"
+            date1 = dframe['TIME']
+            date2 = dframe2['TIME']
             total1 = dframe['TOTAL_ACCIDENTS']
             total2 = dframe2['TOTAL_ACCIDENTS']
             self.sum1 = dframe['TOTAL_ACCIDENTS'].sum()
@@ -780,33 +691,254 @@ class State(HydraHeadApp):
         
         fig = go.Figure()
         fig.add_trace(go.Bar(
-            x=date1,
-            y=total1,
-            name = self.location1, # name used in legend and hover labels
-            marker_color='#ED8C31',
-            opacity=0.75
+            x = date1,
+            y = total1,
+            name = self.location1,
+            marker_color = '#ED8C31',
+            opacity = 0.90
         ))
         fig.add_trace(go.Bar(
-            x=date2,
-            y=total2,
+            x = date2,
+            y = total2,
             name = self.location2,
-            marker_color='#3184ED',
-            opacity=1
+            marker_color = '#3184ED',
+            opacity = 0.90
         ))
 
         fig.update_layout(
-            title_text = 'Accident Data for Selected Period', # title of plot
+            legend = dict(
+                font = dict(family = "Arial", size = 18),
+                yanchor = "top", y = 1.2, xanchor="left", x = 0
+            ),
             xaxis_title_text = xLabel, # xaxis label
             yaxis_title_text = 'Total Accidents', # yaxis label
             bargap = 0.2, # gap between bars of adjacent location coordinates
-            bargroupgap = 0.1 # gap between bars of the same location coordinates
+            bargroupgap = 0.1, # gap between bars of the same location coordinates
+            height = 600,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        
+        fig.update_yaxes(title_font = dict(size = 18), tickfont_size = 18)
+        fig.update_xaxes(title_font = dict(size = 18), tickfont_size = 18)
+        st.plotly_chart(fig, use_container_width = True)
+
+    def load_line_graph(self, location1, location2):
+
+        if self.location_choice == "State" and self.date_choice == "Year":
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:    
+                st.subheader(f"Funding:\n {location1}")
+                where = "WHERE state_name IN ("
+                states = []
+                modified_states = []
+                
+                if location1 not in states:
+                    states.append(location1)
+
+                for val in states:
+                    mod = "\'" + val + "\'"
+                    if mod not in modified_states:
+                        modified_states.append(mod)
+
+                for index, val in enumerate(modified_states):
+                    if len(modified_states) > 1:
+                        where = where[:len(where) - 2]
+                        where += ", "
+                    where += modified_states[index] + ", "
+                    if index == len(modified_states) - 1:
+                        where = where[:len(where) - 2] + ")"
+
+                query = f"""WITH cte_funding AS(
+                        SELECT sname AS state_name, year, funding
+                        FROM "J.POULOS".state_fund),
+
+                        cte_accidents AS (
+                        SELECT COUNT(id) AS accidents, EXTRACT(year FROM start_time) AS year, state_name
+                        FROM "J.POULOS".accident
+                        GROUP BY state_name, EXTRACT(year FROM start_time))
+
+                        SELECT * FROM cte_funding NATURAL JOIN cte_accidents
+                        {where}
+                        ORDER BY year"""
+
+
+                df_oracle2 = pd.read_sql(query, con=oracle_db.connection)
+                
+                fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize = (5.5, 4.5))
+                fig.tight_layout()
+                
+                ax1.set_title('Funding')
+                ax1.set_ylabel('Dollar Amount')
+            
+                ax2.set_title('Amount of Accidents', fontsize = 8)
+                ax2.set_xlabel('Year', fontsize = 8)
+                ax2.set_ylabel('Accidents', fontsize = 8)
+                
+                ax2.plot(df_oracle2['YEAR'], df_oracle2['ACCIDENTS'], label = location1)
+                ax1.plot(df_oracle2['YEAR'], df_oracle2['FUNDING'], label = location1)
+            
+
+                for tick in ([ax1.title, ax1.xaxis.label, ax1.yaxis.label, ax2.title,
+                            ax2.xaxis.label, ax2.yaxis.label] + ax1.get_xticklabels() +
+                            ax2.get_xticklabels() + ax1.get_yticklabels() + ax2.get_yticklabels()):
+                    tick.set_fontsize(6)
+                ax2.set_xticks(df_oracle2['YEAR'])
+                ax1.set_xticks(df_oracle2['YEAR'])
+                ax2.legend(bbox_to_anchor = (0., 2.4, 1., .102), 
+                            fontsize = 7,
+                            loc = 'lower left',
+                            ncol = 2, mode = "expand", 
+                            borderaxespad = 0)
+                
+                st.pyplot(fig = plt)
+  
+                if "load_state" not in st.session_state:
+                    st.session_state.load_state = False
+
+                if st.button("Compare this state with another?") or st.session_state.load_state:
+                    st.session_state.load_state = True
+
+                    with col2: 
+                        st.subheader(f"Funding:\n {location1} vs {location2}")  
+                        if location2 not in states:
+                            states.append(location2)
+
+                        for val in states:
+                            mod = "\'" + val + "\'"
+                            if mod not in modified_states:
+                                modified_states.append(mod)
+
+                        for index, val in enumerate(modified_states):
+                            if len(modified_states) == 1:
+                                break
+                            if len(modified_states) > 1:
+                                where = where[:len(where) - 1]
+                                
+                            where += modified_states[index] + ", "
+                            if index == len(modified_states) - 1:
+                                where = where[:len(where) - 2] + ")"
+                
+                        query = f"""WITH cte_funding AS(
+                                SELECT sname AS state_name, year, funding
+                                FROM "J.POULOS".state_fund),
+
+                                cte_accidents AS (
+                                SELECT COUNT(id) AS accidents, EXTRACT(year FROM start_time) AS year, state_name
+                                FROM "J.POULOS".accident
+                                GROUP BY state_name, EXTRACT(year FROM start_time))
+
+                                SELECT * FROM cte_funding NATURAL JOIN cte_accidents
+                                {where}
+                                ORDER BY year"""
+
+
+                        df_oracle3 = pd.read_sql(query, con=oracle_db.connection)
+
+                        ax1.set_title('Funding')
+                        ax1.set_ylabel('Dollar Amount')
+
+                        ax2.set_title('Amount of Accidents', fontsize=12)
+                        ax2.set_xlabel('Year', fontsize=12)
+                        ax2.set_ylabel('Accidents')
+
+                        for frame in [df_oracle3]:
+                            ax1.plot(frame['YEAR'], frame['FUNDING'], label=frame['STATE_NAME'].loc[0])
+                            ax2.plot(frame['YEAR'], frame['ACCIDENTS'], label=frame['STATE_NAME'].loc[0])
+                        ax2.legend(bbox_to_anchor = (0., 2.4, 1., .102), 
+                                fontsize = 7,
+                                loc = 'lower left',
+                                ncol = 2, mode = "expand", 
+                                borderaxespad = 0)
+
+                        for tick in ([ax1.title, ax1.xaxis.label, ax1.yaxis.label, ax2.title,
+                                    ax2.xaxis.label, ax2.yaxis.label] + ax1.get_xticklabels() +
+                                    ax2.get_xticklabels() + ax1.get_yticklabels() + ax2.get_yticklabels()):
+                            tick.set_fontsize(6)
+                        ax2.set_xticks(df_oracle2['YEAR'])
+                        ax1.set_xticks(df_oracle2['YEAR'])
+
+                        st.pyplot(fig = plt)
+                        
+                        if "another_state" not in st.session_state:
+                            st.session_state.another_state = False
+
+                        if st.button("Compare previous two with another state?") or st.session_state.another_state:
+                            
+                            st.session_state.another_state = True
+
+                            with col3:
+                    
+                                # randomly chooses a third state
+                                random_state = random.choice(self.state_name)
+                                while random_state == location1 or random_state == location2:
+                                    random_state = random.choice(self.state_name)
+                                    
+                                st.subheader(f"Funding:\n{location1} vs {location2} vs randomly chosen state {random_state}")
+                                
+                                if random_state not in states:
+                                    states.append(random_state)
+
+                                for val in states:
+                                    mod = "\'" + val + "\'"
+                                    if mod not in modified_states:
+                                        modified_states.append(mod)
+
+                                for index, val in enumerate(modified_states):
+                                    if len(modified_states) == 1:
+                                        break
+                                    
+                                    if len(modified_states) > 1:
+                                        where = where[:len(where) - 1]
+                        
+                                    where += modified_states[index] + ", "
+                                    if index == len(modified_states) - 1:
+                                        where = where[:len(where) - 2] + ")"
+
+                                query = f"""WITH cte_funding AS(
+                                        SELECT sname AS state_name, year, funding
+                                        FROM "J.POULOS".state_fund),
+
+                                        cte_accidents AS (
+                                        SELECT COUNT(id) AS accidents, EXTRACT(year FROM start_time) AS year, state_name
+                                        FROM "J.POULOS".accident
+                                        GROUP BY state_name, EXTRACT(year FROM start_time))
+
+                                        SELECT * FROM cte_funding NATURAL JOIN cte_accidents
+                                        {where}
+                                        ORDER BY year"""
+
+                                df_oracle4 = pd.read_sql(query, con=oracle_db.connection)
+                                df_oracle4 = df_oracle4[df_oracle4['STATE_NAME'] == states[len(states)-1]]
+
+                                ax1.set_title('Funding')
+                                ax1.set_ylabel('Dollar Amount')
+                                ax2.set_title('Amount of Accidents', fontsize = 8)
+                                ax2.set_xlabel('Year', fontsize = 8)
+                                ax2.set_ylabel('Accidents')
+
+                                for frame in [df_oracle4]:
+                                    ax1.plot(frame['YEAR'], frame['FUNDING'], label = random_state)
+                                    ax2.plot(frame['YEAR'], frame['ACCIDENTS'], label = random_state)
+                                
+                                ax2.legend(
+                                    fontsize = 7, 
+                                    bbox_to_anchor = (0., 2.4, 1., .102), 
+                                    loc = 'lower left',
+                                    ncol = 3, mode = "expand", 
+                                    borderaxespad = 0.)
+                                
+                                for tick in ([ax1.title, ax1.xaxis.label, ax1.yaxis.label, ax2.title,
+                                            ax2.xaxis.label, ax2.yaxis.label] + ax1.get_xticklabels() +
+                                            ax2.get_xticklabels() + ax1.get_yticklabels() + ax2.get_yticklabels()):
+                                    tick.set_fontsize(6)
+                                ax2.set_xticks(df_oracle2['YEAR'])
+                                ax1.set_xticks(df_oracle2['YEAR'])
+                                st.pyplot(fig=plt)
 
     def run(self):
 
         st.image(Image.open('images/logo_banner.png'), use_column_width = True)
-        st.header("Accidents by Location")
+        
         self.load_sidebar()
         
         # calls query builder
@@ -818,32 +950,40 @@ class State(HydraHeadApp):
         self.df_location2 = pd.read_sql(data2, con = oracle_db.connection)
 
         # creates a two column layout.
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3 = st.columns([1.25, 1.25, 1])
         with col1:
+            st.header(f"Accident locations for {self.location1}")
             # updates the left map to the state selected.
             self.load_map(self.location1)
 
         with col2:
+            st.header(f"Accident locations for {self.location2}")
             # updates the right map to the state selected.
             self.load_map(self.location2)
-        
+
         with col3:
-            st.text_area("Query Info", 
-                         "Weather Query: \n" + str(self.wthr_query) + "\n\n"
-                         "Temperature Query: \n" + str(self.temp_query) + "\n\n" + 
-                         "Time Query: \n" + str(self.time_query), height = 405)  
-
-        col4, col5 = st.columns(2)
+            st.header("Data")
+            st.text_area("", 
+                    "State1: " + self.location1 + "\n\n"
+                    "Total Accidents: " + str(self.sum1) + "\n\n"  
+                    "State2: " + self.location2 + "\n\n"
+                    "Total Accidents: " + str(self.sum2) + "\n\n" , height = 500)
+        
+        # page separator
+        st.markdown("""***""") 
+        
+        col4, col5 = st.columns([2.5,1])
         with col4:
-            self.load_histogram(self.df_location1, self.df_location2)
-            st.code(data1 + ";", language='sql')
-            
-
-        with col5:
-            st.text_area(f"Accident totals ", 
-                        "State1: " + self.location1 + "\n\n"
-                        "Total Accidents: " + str(self.sum1) + "\n\n"  
-                        "State2: " + self.location2 + "\n\n"
-                        "Total Accidents: " + str(self.sum2) + "\n\n" , height = 420)
-            st.code(data2 + ";", language='sql') 
+            st.header(f"Accident data for {self.location1} and {self.location2}")
+            self.load_bar_graph(self.df_location1, self.df_location2)
            
+        with col5:
+            with st.container():
+                st.subheader(f"Query for {self.location1} :")
+                st.code(data1 + ";", language ='sql')
+                st.subheader(f"Query for {self.location2} :")        
+                st.code(data2 + ";", language ='sql')
+           
+        st.markdown("""***""")
+        self.load_line_graph(self.location1, self.location2)
+               
