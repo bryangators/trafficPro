@@ -168,6 +168,17 @@ class Home(HydraHeadApp):
                 'Choose a State',
                 state_list['STATE'])
 
+        #Weekly Graph
+        if (date_choice == 'Year'):
+            st.header(f"{state} Weekly Accidents")
+            wk_query = self.generate_wk_query(date_choice,state)            
+            wk_df = pd.read_sql(wk_query, con = oracle_db.connection)            
+            wk_fig = px.line(wk_df, x="Weeks", y="Accidents")
+            st.plotly_chart(wk_fig, use_container_width=True)
+            st.code(wk_query + ";", language='sql')
+
+
+
         # FUNDING GRAPH
         st.header(f"{state} Funding vs Accidents")
         fund_query = self.generate_funding_query(state)
@@ -232,8 +243,8 @@ class Home(HydraHeadApp):
         pop_fig.update_yaxes(title_text="Total Accidents", secondary_y=True)
 
         st.plotly_chart(pop_fig, use_container_width=True)
+
             
-    
     def generate_query(self, date_choice):
         result = f"""SELECT * 
                      FROM "J.POULOS".ACCIDENT
@@ -274,6 +285,28 @@ class Home(HydraHeadApp):
         result += f"""GROUP BY STATE_NAME\nORDER BY COUNT(*) DESC\nFETCH FIRST 10 ROWS ONLY"""
        
         return result
+
+    #Weekly
+    def generate_wk_query(self,date_choice,state):
+        result = f"""SELECT COUNT(*) AS "Accidents", TRUNC(Start_Time, 'IW') AS "Weeks"\nFROM "J.POULOS".ACCIDENT\nWHERE STATE_NAME = '{state}' AND\n"""    
+
+         # add date conditions
+        result += self.generate_date_list(date_choice)
+        
+        # add weather conditions
+        result += self.generate_weather_list()
+
+        # add temperature conditions
+        result += self.generate_temp_list()
+
+        # add time conditions
+        result += self.generate_time_list()
+
+        # group by week
+        result += f"""GROUP BY TRUNC(Start_Time, 'IW') ORDER BY "Weeks" ASC"""
+
+        return result
+      
 
     def generate_map_query(self, date_choice):
         result = f"""SELECT s.ABBREVIATION AS code, count(a.ID) AS total, s.SNAME AS state\nFROM "J.POULOS".ACCIDENT a, "J.POULOS".STATE s\nWHERE a.STATE_NAME = s.SNAME AND\n"""
