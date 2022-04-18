@@ -53,7 +53,7 @@ class Home(HydraHeadApp):
                     st.header('Accidents by Year', anchor = None)
                     self.year = st.slider(
                         'Select the range of years',
-                        2016, 2020, 2020
+                        2016, 2020, (2016, 2020)
                     )
                 
                 # Weather options
@@ -96,7 +96,7 @@ class Home(HydraHeadApp):
             if (date_choice == 'Date'):
                 st.caption(f"Total on {self.day}")
             else:
-                st.caption(f"Total in {self.year}")
+                st.caption(f"Total between {self.year[0]} and {self.year[1]}")
 
             map_query = self.generate_map_query(date_choice)
             map_df = pd.read_sql(map_query, con = oracle_db.connection)
@@ -130,7 +130,7 @@ class Home(HydraHeadApp):
             if (date_choice == 'Date'):
                 st.caption(f"Total on {self.day}")
             else:
-                st.caption(f"Total in {self.year}")
+                st.caption(f"Total between {self.year[0]} and {self.year[1]}")
 
             #Creates queries dynamically and stores the query code in USData
             USData = self.generate_query1(date_choice)
@@ -241,10 +241,7 @@ class Home(HydraHeadApp):
                      """
 
         # add date conditions
-        if date_choice == 'Date':
-            result += f"""trunc(start_time) = to_date('{self.day}', 'YYYY-MM-DD')\n"""
-        else:
-            result += f"""EXTRACT(year FROM start_time) = {self.year}\n"""
+        result += self.generate_date_list(date_choice)
         
         # add weather conditions
         result += self.generate_weather_list()
@@ -262,10 +259,7 @@ class Home(HydraHeadApp):
         result = f"""SELECT COUNT(*) AS Accidents, STATE_NAME AS State\nFROM "J.POULOS".ACCIDENT\nWHERE """
         
         # add date conditions
-        if date_choice == 'Date':
-            result += f"trunc(start_time) = to_date('{self.day}', 'YYYY-MM-DD')\n"
-        else:
-            result += f"EXTRACT(year FROM start_time) = {self.year}\n"
+        result += self.generate_date_list(date_choice)
         
         # add weather conditions
         result += self.generate_weather_list()
@@ -285,10 +279,7 @@ class Home(HydraHeadApp):
         result = f"""SELECT s.ABBREVIATION AS code, count(a.ID) AS total, s.SNAME AS state\nFROM "J.POULOS".ACCIDENT a, "J.POULOS".STATE s\nWHERE a.STATE_NAME = s.SNAME AND\n"""
 
         # add date conditions
-        if date_choice == 'Date':
-            result += f"trunc(start_time) = to_date('{self.day}', 'YYYY-MM-DD')\n"
-        else:
-            result += f"EXTRACT(year FROM start_time) = {self.year}\n"
+        result += self.generate_date_list(date_choice)
         
         # add weather conditions
         result += self.generate_weather_list()
@@ -329,6 +320,14 @@ class Home(HydraHeadApp):
                     WHERE t.year = p.year and t.state_name = p.sname
                     ORDER BY year ASC"""
 
+        return result
+
+    def generate_date_list(self, date_choice):
+        result = """"""
+        if date_choice == 'Date':
+            result += f"""trunc(start_time) = to_date('{self.day}', 'YYYY-MM-DD')\n"""
+        else:
+            result += f"""EXTRACT(year FROM start_time) >= {self.year[0]}\nAND EXTRACT(year FROM start_time) <= {self.year[1]}\n"""
         return result
 
     # helper function to format list of weather conditions chosen
