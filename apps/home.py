@@ -32,7 +32,7 @@ class Home(HydraHeadApp):
         This section is for the elements in the sidebar
         """
         with st.sidebar:
-            
+
             st.image(l2, width = 250)
             date_choice = st.radio(
                 "Query by Date or Year Range",
@@ -85,6 +85,11 @@ class Home(HydraHeadApp):
 
             self.dbstats()
 
+            sql_choice = st.radio(
+                "Show SQL Code for Queries",
+                ("Hide", "Show")
+            )
+
         """
         This section is for the main page elements
         """  
@@ -120,8 +125,10 @@ class Home(HydraHeadApp):
             map_fig.update_layout(height=300, margin={"r":20,"t":60,"l":0,"b":0})
             st.plotly_chart(map_fig, use_container_width=True)
 
-            st.text("SQL for Above Query:")
-            st.code(map_query + ";", language='sql')
+            
+            if sql_choice == 'Show':
+                st.text("SQL for Above Query:")
+                st.code(map_query + ";", language='sql')
 
             
 
@@ -152,8 +159,10 @@ class Home(HydraHeadApp):
             top10_fig.update_layout(barmode='stack', yaxis={'categoryorder':'total ascending'})
             st.write(top10_fig, use_container_width=True)
             # st.bar_chart(USData4graph['ACCIDENTS'])
-            st.text("SQL for Above Query:")
-            st.code(USData + ";", language='sql')
+            
+            if sql_choice == 'Show':
+                st.text("SQL for Above Query:")
+                st.code(USData + ";", language='sql')
 
         
         
@@ -175,7 +184,8 @@ class Home(HydraHeadApp):
             wk_df = pd.read_sql(wk_query, con = oracle_db.connection)            
             wk_fig = px.line(wk_df, x="Weeks", y="Accidents")
             st.plotly_chart(wk_fig, use_container_width=True)
-            st.code(wk_query + ";", language='sql')
+            if sql_choice == 'Show':
+                st.code(wk_query + ";", language='sql')
 
 
 
