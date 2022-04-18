@@ -60,6 +60,7 @@ class State(HydraHeadApp):
                 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 
                 'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 
                 'West Virginia', 'Wisconsin', 'Wyoming')
+        self.sql_choice = 'Hide'
 
     def update_state(self, name):
         match name:
@@ -342,6 +343,11 @@ class State(HydraHeadApp):
                 st.header('State Funding', anchor = None)
                 self.add_queries = st.selectbox("Select a Query", ["", "State Funding"])
                 self.form = st.form_submit_button(label = 'Run Query')
+        
+            self.sql_choice = st.radio(
+                    "Show SQL Code for Queries",
+                    ("Hide", "Show")
+                )
 
     def load_map(self, state, city):
 
@@ -603,9 +609,9 @@ class State(HydraHeadApp):
                         "\tTotal Accidents: " + str(sum_accidents2) + "\n\n"
                         "Average number of accidents in the US for the selected time period: " + "\n\t" +
                         str(round(natl_average, 2)), height = 300)
-
-            st.subheader("Query for Averages: ")            
-            st.code(temp + ";", language ='sql')
+            if self.sql_choice == 'Show':
+                st.subheader("Query for Averages: ")            
+                st.code(temp + ";", language ='sql')
 
     def avg_query(self):
         
@@ -919,9 +925,9 @@ class State(HydraHeadApp):
                                 "\tTotal Accidents: " + str(sum_accidents3) + "\n" 
                                 "\tState Funding: " + str(sum_funding3) + "\n"
                                 "National Average For State Funding:\n\t" + str(round(natl_funding, 2)), height = 300)
-                        
-                        st.subheader(f"Query for {self.state1}, {self.state2}, and {random_state}:")     
-                        st.code(query3 + ";", language ='sql')
+                        if self.sql_choice == 'Show':
+                            st.subheader(f"Query for {self.state1}, {self.state2}, and {random_state}:")     
+                            st.code(query3 + ";", language ='sql')
                                                                                
     def run(self):
 
@@ -1016,17 +1022,19 @@ class State(HydraHeadApp):
         with col5:
             if self.form and self.location_choice == "City" and not self.city1 == "" and not self.city2 == "":
                 with st.container():
-                    st.subheader(f"Query for {self.city1}, {self.state1} :")
-                    st.code(data1 + ";", language ='sql')
-                    st.subheader(f"Query for for {self.city2}, {self.state2} :")        
-                    st.code(data2 + ";", language ='sql')
+                    if self.sql_choice == 'Show':
+                        st.subheader(f"Query for {self.city1}, {self.state1} :")
+                        st.code(data1 + ";", language ='sql')
+                        st.subheader(f"Query for for {self.city2}, {self.state2} :")        
+                        st.code(data2 + ";", language ='sql')
 
             elif self.form and self.location_choice == "State":
                 with st.container():
-                    st.subheader(f"Query for {self.state1} :")
-                    st.code(data1 + ";", language ='sql')
-                    st.subheader(f"Query for {self.state2} :")       
-                    st.code(data2 + ";", language ='sql')
+                    if self.sql_choice == 'Show':
+                        st.subheader(f"Query for {self.state1} :")
+                        st.code(data1 + ";", language ='sql')
+                        st.subheader(f"Query for {self.state2} :")       
+                        st.code(data2 + ";", language ='sql')
 
         st.markdown("""***""")
         if self.add_queries == "State Funding":
