@@ -364,7 +364,7 @@ class State(HydraHeadApp):
                 latitude = self.latitude,
                 longitude = self.longitude,
                 height = 530,
-                width = 650,
+                width = 450,
                 zoom = defaultZoom,
                 pitch = 10,
             ),
