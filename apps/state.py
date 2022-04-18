@@ -705,8 +705,8 @@ class State(HydraHeadApp):
             xaxis_title_text = xLabel, # xaxis label
             yaxis_title_text = 'Total Accidents', # yaxis label
             bargap = 0.2, # gap between bars of adjacent location coordinates
-            bargroupgap = 0.1, # gap between bars of the same location coordinates
-            height = 700,
+            bargroupgap = 0.1, # gap between bars of the same location coordinates,
+            height = 600,
         )
         
         fig.update_yaxes(title_font = dict(size = 18), tickfont_size = 18)
@@ -1005,7 +1005,7 @@ class State(HydraHeadApp):
         # page separator
         st.markdown("""***""") 
         
-        col4, col5 = st.columns([2.5,1])
+        col4, col5 = st.columns([2,1])
         with col4:
             if self.form and self.location_choice == "City" and not self.city1 == "" and not self.city2 == "":
                 st.header(f"Accident data for {self.city1}, {self.state1} and {self.city2}, {self.state2}")
